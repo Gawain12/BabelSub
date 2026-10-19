@@ -53,7 +53,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p bundle
-          pyinstaller --noconfirm --clean --onefile --name "ffsubsync${{ matrix.ext }}" --collect-all ffsubsync -c "$(python -c 'import ffsubsync, os; print(os.path.join(os.path.dirname(ffsubsync.__file__), "ffsubsync.py"))')"
+          ENTRY_SCRIPT=$(python -c 'import ffsubsync, os; print(os.path.join(os.path.dirname(ffsubsync.__file__), "ffsubsync.py"))')
+          pyinstaller --noconfirm --clean --onefile \
+            --additional-hooks-dir=scripts/hooks \
+            --name "ffsubsync${{ matrix.ext }}" \
+            --collect-all ffsubsync \
+            "$ENTRY_SCRIPT"
           cp dist/ffsubsync${{ matrix.ext }} bundle/
 
       - name: Build BabelSub Core Binary
