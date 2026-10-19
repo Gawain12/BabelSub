@@ -23,11 +23,6 @@ jobs:
             arch: arm64
             artifact_name: babelsub-darwin-arm64
             ext: ""
-          - os: macos-13
-            platform: darwin
-            arch: amd64
-            artifact_name: babelsub-darwin-amd64
-            ext: ""
           - os: ubuntu-latest
             platform: linux
             arch: amd64

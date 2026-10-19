@@ -39,7 +39,6 @@ BabelSub 通过对接 Emby / Jellyfin / Plex 的 API 快速读取库内影片信
 ### 方式一：下载开箱即用全功能包（推荐）
 直接在 [Releases](https://github.com/Gawain12/BabelSub/releases) 页面下载对应系统的压缩包：
 - `babelsub-darwin-arm64.tar.gz` (macOS Apple Silicon)
-- `babelsub-darwin-amd64.tar.gz` (macOS Intel)
 - `babelsub-linux-amd64.tar.gz` (Linux x86_64)
 - `babelsub-linux-arm64.tar.gz` (Linux ARM64)
 - `babelsub-windows-amd64.zip` (Windows x64)
