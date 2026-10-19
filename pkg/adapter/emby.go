@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Gawain12/BabelSub/pkg/lang"
 )
 
 type EmbyAdapter struct {
@@ -57,13 +59,24 @@ type embyItemsResponse struct {
 }
 
 type embyRawItem struct {
-	ID                  string            `json:"Id"`
-	Name                string            `json:"Name"`
-	OriginalTitle       string            `json:"OriginalTitle"`
-	ProductionYear      int               `json:"ProductionYear"`
-	Path                string            `json:"Path"`
-	ProductionLocations []string          `json:"ProductionLocations"`
-	MediaStreams        []embyRawStream   `json:"MediaStreams"`
+	ID                  string          `json:"Id"`
+	Name                string          `json:"Name"`
+	OriginalTitle       string          `json:"OriginalTitle"`
+	ProductionYear      int             `json:"ProductionYear"`
+	Path                string          `json:"Path"`
+	Container           string          `json:"Container"`
+	DateCreated         string          `json:"DateCreated"`
+	RunTimeTicks        int64           `json:"RunTimeTicks"`
+	ProductionLocations []string        `json:"ProductionLocations"`
+	MediaStreams        []embyRawStream `json:"MediaStreams"`
+	ImageTags           map[string]any  `json:"ImageTags"`
+	MediaSources        []struct {
+		ID           string          `json:"Id"`
+		Path         string          `json:"Path"`
+		Protocol     string          `json:"Protocol"`
+		Container    string          `json:"Container"`
+		MediaStreams []embyRawStream `json:"MediaStreams"`
+	} `json:"MediaSources"`
 }
 
 type embyRawStream struct {
@@ -76,48 +89,32 @@ type embyRawStream struct {
 	Path         string `json:"Path"`
 }
 
-func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
+func (e *EmbyAdapter) get(path string, q url.Values) (*http.Response, error) {
+	if q == nil {
+		q = url.Values{}
+	}
+	q.Set("api_key", e.APIKey)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s%s?%s", e.Host, e.prefix, path, q.Encode()), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Emby-Token", e.APIKey)
+	return e.client.Do(req)
+}
+
+func (e *EmbyAdapter) ListMovies(targetAudioLang, nativeLang string) ([]MediaItem, error) {
 	var results []MediaItem
 	startIndex := 0
 	limit := 300
 
-	langMatch := strings.ToLower(targetAudioLang)
-	var langAliases []string
-	var countryAliases []string
-
-	switch langMatch {
-	case "ja", "jpn", "japanese":
-		langAliases = []string{"ja", "jpn", "japanese"}
-		countryAliases = []string{"japan", "日本"}
-	case "zh", "chi", "chinese":
-		langAliases = []string{"zh", "chi", "chinese", "zho"}
-		countryAliases = []string{"china", "taiwan", "hong kong", "中国", "台湾", "香港"}
-	case "en", "eng", "english":
-		langAliases = []string{"en", "eng", "english"}
-		countryAliases = []string{"united states", "united kingdom", "australia", "canada", "美国", "英国"}
-	case "fr", "fre", "fra", "french":
-		langAliases = []string{"fr", "fre", "fra", "french"}
-		countryAliases = []string{"france", "法国"}
-	case "ko", "kor", "korean":
-		langAliases = []string{"ko", "kor", "korean"}
-		countryAliases = []string{"south korea", "korea", "韩国"}
-	default:
-		if langMatch != "" {
-			langAliases = []string{langMatch}
-		}
-	}
-
 	for {
-		reqURL := fmt.Sprintf("%s/%s/Items?IncludeItemTypes=Movie&Recursive=true&Fields=MediaSources,MediaStreams,Path,OriginalTitle,ProductionYear,ProductionLocations&StartIndex=%d&Limit=%d&api_key=%s",
-			e.Host, e.prefix, startIndex, limit, url.QueryEscape(e.APIKey))
-
-		req, err := http.NewRequest("GET", reqURL, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("X-Emby-Token", e.APIKey)
-
-		resp, err := e.client.Do(req)
+		q := url.Values{}
+		q.Set("IncludeItemTypes", "Movie")
+		q.Set("Recursive", "true")
+		q.Set("Fields", "MediaSources,MediaStreams,Path,OriginalTitle,ProductionYear,ProductionLocations,DateCreated")
+		q.Set("StartIndex", fmt.Sprint(startIndex))
+		q.Set("Limit", fmt.Sprint(limit))
+		resp, err := e.get("/Items", q)
 		if err != nil {
 			return nil, err
 		}
@@ -139,13 +136,37 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 		}
 
 		for _, item := range data.Items {
-			var streams []MediaStream
-			hasAudioMatch := false
-			hasBilingual := false
-			matchedAudioName := ""
+			mi := MediaItem{
+				ID:            item.ID,
+				Name:          item.Name,
+				OriginalTitle: item.OriginalTitle,
+				Year:          item.ProductionYear,
+				Path:          item.Path,
+				ServerType:    e.prefix,
+				Countries:     item.ProductionLocations,
+				DateCreated:   item.DateCreated,
+				RuntimeSec:    int(item.RunTimeTicks / 10_000_000),
+				Container:     item.Container,
+				HasPoster:     item.ImageTags["Primary"] != nil,
+			}
+			rawStreams := item.MediaStreams
+			if len(item.MediaSources) > 0 {
+				src := item.MediaSources[0]
+				mi.MediaSourceID = src.ID
+				if src.Container != "" && src.Container != "strm" {
+					mi.Container = src.Container
+				}
+				if strings.EqualFold(src.Protocol, "Http") || strings.HasPrefix(src.Path, "http") {
+					mi.MediaURL = src.Path
+				}
+				if len(rawStreams) == 0 {
+					rawStreams = src.MediaStreams
+				}
+			}
 
-			for _, s := range item.MediaStreams {
-				ms := MediaStream{
+			hasAudioMatch := false
+			for _, s := range rawStreams {
+				mi.Streams = append(mi.Streams, MediaStream{
 					Index:        s.Index,
 					Type:         s.Type,
 					Language:     s.Language,
@@ -153,64 +174,31 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 					Codec:        s.Codec,
 					IsExternal:   s.IsExternal,
 					Path:         s.Path,
+				})
+				if s.Type == "Audio" && lang.Matches(s.Language, targetAudioLang) && !hasAudioMatch {
+					hasAudioMatch = true
+					mi.TargetAudio = s.Language
 				}
-				streams = append(streams, ms)
-
-				if s.Type == "Audio" && len(langAliases) > 0 {
-					for _, alias := range langAliases {
-						if strings.EqualFold(s.Language, alias) {
-							hasAudioMatch = true
-							matchedAudioName = s.Language
-							break
-						}
-					}
-				}
-
-				if s.Type == "Subtitle" {
-					titleLower := strings.ToLower(s.DisplayTitle)
-					pathLower := strings.ToLower(s.Path)
-					if strings.Contains(titleLower, "zh-ja") || strings.Contains(titleLower, "双语") ||
-						strings.Contains(pathLower, "zh-ja") || strings.Contains(pathLower, "双语") {
-						hasBilingual = true
-					}
+				if s.Type == "Subtitle" && (lang.IsBilingualName(s.DisplayTitle, nativeLang, targetAudioLang) ||
+					lang.IsBilingualName(filepathBase(s.Path), nativeLang, targetAudioLang)) {
+					mi.HasBilingual = true
 				}
 			}
 
-			// Dual criteria: match by audio track OR by film production country (e.g. unprobed .strm movies from Japan)
-			isCountryMatch := false
-			if len(countryAliases) > 0 {
-				for _, loc := range item.ProductionLocations {
-					locLower := strings.ToLower(loc)
-					for _, cAlias := range countryAliases {
-						if strings.Contains(locLower, cAlias) {
-							isCountryMatch = true
-							if matchedAudioName == "" {
-								matchedAudioName = strings.ToUpper(langMatch)
-							}
-							break
-						}
-					}
-					if isCountryMatch {
-						break
-					}
+			if targetAudioLang != "" {
+				switch {
+				case hasAudioMatch:
+					mi.MatchedBy = "audio"
+				// Unprobed items (e.g. .strm) carry no streams: fall back to production country.
+				case lang.MatchesCountry(targetAudioLang, item.ProductionLocations):
+					mi.MatchedBy = "country"
+					mi.TargetAudio = lang.Normalize(targetAudioLang)
+				default:
+					continue
 				}
 			}
 
-			if len(langAliases) > 0 && !hasAudioMatch && !isCountryMatch {
-				continue
-			}
-
-			results = append(results, MediaItem{
-				ID:            item.ID,
-				Name:          item.Name,
-				OriginalTitle: item.OriginalTitle,
-				Year:          item.ProductionYear,
-				Path:          item.Path,
-				ServerType:    e.prefix,
-				Streams:       streams,
-				HasBilingual:  hasBilingual,
-				TargetAudio:   matchedAudioName,
-			})
+			results = append(results, mi)
 		}
 
 		startIndex += limit
@@ -220,6 +208,37 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 	}
 
 	return results, nil
+}
+
+func filepathBase(p string) string {
+	p = strings.ReplaceAll(p, "\\", "/")
+	if i := strings.LastIndex(p, "/"); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
+
+func (e *EmbyAdapter) FetchSubtitle(item MediaItem, stream MediaStream) ([]byte, error) {
+	msid := item.MediaSourceID
+	if msid == "" {
+		msid = item.ID
+	}
+	resp, err := e.get(fmt.Sprintf("/Videos/%s/%s/Subtitles/%d/Stream.srt", url.PathEscape(item.ID), url.PathEscape(msid), stream.Index), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("subtitle download returned status %d", resp.StatusCode)
+	}
+	return readAllLimited(resp.Body)
+}
+
+func (e *EmbyAdapter) FetchPoster(itemID string, maxHeight int) (*http.Response, error) {
+	q := url.Values{}
+	q.Set("maxHeight", fmt.Sprint(maxHeight))
+	q.Set("quality", "85")
+	return e.get(fmt.Sprintf("/Items/%s/Images/Primary", url.PathEscape(itemID)), q)
 }
 
 func (e *EmbyAdapter) RefreshItem(itemID string) error {

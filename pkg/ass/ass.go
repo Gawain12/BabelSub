@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,14 +28,20 @@ func ParseSRT(filePath string) ([]SubtitleEntry, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 1<<20)
 	var entries []SubtitleEntry
-	timeRegex := regexp.MustCompile(`(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})`)
 
 	var curEntry *SubtitleEntry
 	var lines []string
 
+	first := true
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+		raw := scanner.Text()
+		if first {
+			raw = strings.TrimPrefix(raw, "\uFEFF")
+			first = false
+		}
+		line := strings.TrimSpace(raw)
 		if line == "" {
 			if curEntry != nil && len(lines) > 0 {
 				curEntry.Text = strings.Join(lines, " ")
@@ -57,7 +64,9 @@ func ParseSRT(filePath string) ([]SubtitleEntry, error) {
 				continue
 			}
 		} else {
-			lines = append(lines, line)
+			if clean := cleanText(line); clean != "" {
+				lines = append(lines, clean)
+			}
 		}
 	}
 
@@ -69,10 +78,29 @@ func ParseSRT(filePath string) ([]SubtitleEntry, error) {
 	return entries, nil
 }
 
+var (
+	timeRegex     = regexp.MustCompile(`(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})`)
+	htmlTagRegex  = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
+	assBlockRegex = regexp.MustCompile(`\{[^}]*\}`)
+)
+
+// cleanText strips HTML-ish tags and inline ASS override blocks so styles from
+// the source files do not leak into the bilingual layout.
+func cleanText(s string) string {
+	s = htmlTagRegex.ReplaceAllString(s, "")
+	s = assBlockRegex.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "\\N", " ")
+	s = strings.ReplaceAll(s, "\\n", " ")
+	return strings.TrimSpace(s)
+}
+
 func parseTime(h, m, s, ms string) time.Duration {
 	hours, _ := strconv.Atoi(h)
 	mins, _ := strconv.Atoi(m)
 	secs, _ := strconv.Atoi(s)
+	for len(ms) < 3 {
+		ms += "0"
+	}
 	milli, _ := strconv.Atoi(ms)
 	return time.Duration(hours)*time.Hour +
 		time.Duration(mins)*time.Minute +
@@ -100,6 +128,17 @@ func GenerateBilingualASS(primarySRT, secondarySRT, outPath string, style *confi
 	sec, err := ParseSRT(secondarySRT)
 	if err != nil {
 		return fmt.Errorf("failed to parse secondary SRT: %w", err)
+	}
+	if len(prim) == 0 {
+		return fmt.Errorf("原语字幕没有解析出任何条目")
+	}
+	if len(sec) == 0 {
+		return fmt.Errorf("中文字幕没有解析出任何条目")
+	}
+	st := *style
+	style = &st
+	if style.SecondaryFontSize <= 0 {
+		style.SecondaryFontSize = style.PrimaryFontSize * 2 / 3
 	}
 
 	outFile, err := os.Create(outPath)
@@ -139,40 +178,65 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 	)
 	w.WriteString(header)
 
+	secTag := fmt.Sprintf("{\\fs%d\\c%s}", style.SecondaryFontSize, style.SecondaryColor)
+	used := make([]bool, len(sec))
+	var events []event
+
 	for _, p := range prim {
 		var matchedSec []string
-		for _, s := range sec {
-			overlapStart := p.Start
-			if s.Start > overlapStart {
-				overlapStart = s.Start
+		for i, s := range sec {
+			if s.End <= p.Start || s.Start >= p.End {
+				continue
 			}
-			overlapEnd := p.End
-			if s.End < overlapEnd {
-				overlapEnd = s.End
+			overlap := minDur(p.End, s.End) - maxDur(p.Start, s.Start)
+			shortest := minDur(p.End-p.Start, s.End-s.Start)
+			// Require a meaningful overlap so a line is not attached to two neighbours.
+			if shortest > 0 && overlap*3 < shortest {
+				continue
 			}
-			if overlapEnd > overlapStart {
-				clean := strings.TrimSpace(s.Text)
-				if clean != "" {
-					matchedSec = append(matchedSec, clean)
-				}
+			used[i] = true
+			if clean := strings.TrimSpace(s.Text); clean != "" {
+				matchedSec = append(matchedSec, clean)
 			}
 		}
 
-		secText := strings.Join(matchedSec, " / ")
-		var text string
-		if secText != "" {
-			// Clean stacked formatting with proportional scaling
-			text = fmt.Sprintf("%s\\N{\\fscx82\\fscy82\\c%s}%s", p.Text, style.SecondaryColor, secText)
-		} else {
-			text = p.Text
+		text := p.Text
+		if len(matchedSec) > 0 {
+			text = fmt.Sprintf("%s\\N%s%s", p.Text, secTag, strings.Join(matchedSec, " "))
 		}
+		events = append(events, event{p.Start, p.End, text})
+	}
 
-		line := fmt.Sprintf("Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n",
-			formatASSTime(p.Start),
-			formatASSTime(p.End),
-			text)
-		w.WriteString(line)
+	// Keep translated-only lines (signs, songs) that have no counterpart.
+	for i, s := range sec {
+		if !used[i] && strings.TrimSpace(s.Text) != "" {
+			events = append(events, event{s.Start, s.End, secTag + s.Text})
+		}
+	}
+	sort.SliceStable(events, func(i, j int) bool { return events[i].start < events[j].start })
+
+	for _, e := range events {
+		fmt.Fprintf(w, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n", formatASSTime(e.start), formatASSTime(e.end), e.text)
 	}
 
 	return w.Flush()
+}
+
+type event struct {
+	start, end time.Duration
+	text       string
+}
+
+func minDur(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxDur(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
 }

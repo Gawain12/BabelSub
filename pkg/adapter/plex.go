@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Gawain12/BabelSub/pkg/lang"
 )
 
 type PlexAdapter struct {
@@ -55,11 +58,19 @@ type plexSectionsResp struct {
 type plexMetadataResp struct {
 	MediaContainer struct {
 		Metadata []struct {
-			RatingKey string `json:"ratingKey"`
-			Title     string `json:"title"`
-			Year      int    `json:"year"`
-			Media     []struct {
-				Part []struct {
+			RatingKey     string `json:"ratingKey"`
+			Title         string `json:"title"`
+			OriginalTitle string `json:"originalTitle"`
+			Year          int    `json:"year"`
+			AddedAt       int64  `json:"addedAt"`
+			Duration      int64  `json:"duration"`
+			Thumb         string `json:"thumb"`
+			Country       []struct {
+				Tag string `json:"tag"`
+			} `json:"Country"`
+			Media []struct {
+				Container string `json:"container"`
+				Part      []struct {
 					File   string `json:"file"`
 					Stream []struct {
 						ID           int    `json:"id"`
@@ -67,6 +78,7 @@ type plexMetadataResp struct {
 						LanguageCode string `json:"languageCode"`
 						DisplayTitle string `json:"displayTitle"`
 						Codec        string `json:"codec"`
+						Key          string `json:"key"`
 					} `json:"Stream"`
 				} `json:"Part"`
 			} `json:"Media"`
@@ -74,16 +86,18 @@ type plexMetadataResp struct {
 	} `json:"MediaContainer"`
 }
 
-func (p *PlexAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
-	reqURL := fmt.Sprintf("%s/library/sections", p.Host)
-	req, err := http.NewRequest("GET", reqURL, nil)
+func (p *PlexAdapter) get(path string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", p.Host+path, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("X-Plex-Token", p.Token)
 	req.Header.Set("Accept", "application/json")
+	return p.client.Do(req)
+}
 
-	resp, err := p.client.Do(req)
+func (p *PlexAdapter) ListMovies(targetAudioLang, nativeLang string) ([]MediaItem, error) {
+	resp, err := p.get("/library/sections")
 	if err != nil {
 		return nil, err
 	}
@@ -96,22 +110,13 @@ func (p *PlexAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 	}
 
 	var results []MediaItem
-	langMatch := strings.ToLower(targetAudioLang)
 
 	for _, sec := range secData.MediaContainer.Directory {
 		if sec.Type != "movie" {
 			continue
 		}
 
-		allURL := fmt.Sprintf("%s/library/sections/%s/all", p.Host, sec.Key)
-		reqMeta, err := http.NewRequest("GET", allURL, nil)
-		if err != nil {
-			continue
-		}
-		reqMeta.Header.Set("X-Plex-Token", p.Token)
-		reqMeta.Header.Set("Accept", "application/json")
-
-		respMeta, err := p.client.Do(reqMeta)
+		respMeta, err := p.get(fmt.Sprintf("/library/sections/%s/all", sec.Key))
 		if err != nil {
 			continue
 		}
@@ -124,15 +129,30 @@ func (p *PlexAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 		}
 
 		for _, item := range metaData.MediaContainer.Metadata {
-			var streams []MediaStream
-			filePath := ""
+			mi := MediaItem{
+				ID:            item.RatingKey,
+				Name:          item.Title,
+				OriginalTitle: item.OriginalTitle,
+				Year:          item.Year,
+				ServerType:    "plex",
+				RuntimeSec:    int(item.Duration / 1000),
+				HasPoster:     item.Thumb != "",
+			}
+			if item.AddedAt > 0 {
+				mi.DateCreated = time.Unix(item.AddedAt, 0).UTC().Format(time.RFC3339)
+			}
+			for _, c := range item.Country {
+				mi.Countries = append(mi.Countries, c.Tag)
+			}
 			hasAudioMatch := false
-			hasBilingual := false
 
 			for _, m := range item.Media {
+				if mi.Container == "" {
+					mi.Container = m.Container
+				}
 				for _, part := range m.Part {
-					if filePath == "" {
-						filePath = part.File
+					if mi.Path == "" {
+						mi.Path = part.File
 					}
 					for _, s := range part.Stream {
 						sType := "Other"
@@ -145,41 +165,66 @@ func (p *PlexAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 							sType = "Subtitle"
 						}
 
-						streams = append(streams, MediaStream{
+						mi.Streams = append(mi.Streams, MediaStream{
 							Index:        s.ID,
 							Type:         sType,
 							Language:     s.LanguageCode,
 							DisplayTitle: s.DisplayTitle,
 							Codec:        s.Codec,
+							IsExternal:   s.Key != "",
+							Key:          s.Key,
 						})
 
-						if sType == "Audio" && langMatch != "" && strings.EqualFold(s.LanguageCode, langMatch) {
+						if sType == "Audio" && lang.Matches(s.LanguageCode, targetAudioLang) && !hasAudioMatch {
 							hasAudioMatch = true
+							mi.TargetAudio = s.LanguageCode
 						}
-						if sType == "Subtitle" && (strings.Contains(s.DisplayTitle, "zh-ja") || strings.Contains(s.DisplayTitle, "双语")) {
-							hasBilingual = true
+						if sType == "Subtitle" && lang.IsBilingualName(s.DisplayTitle, nativeLang, targetAudioLang) {
+							mi.HasBilingual = true
 						}
 					}
 				}
 			}
 
-			if langMatch != "" && !hasAudioMatch {
-				continue
+			if targetAudioLang != "" {
+				switch {
+				case hasAudioMatch:
+					mi.MatchedBy = "audio"
+				case lang.MatchesCountry(targetAudioLang, mi.Countries):
+					mi.MatchedBy = "country"
+					mi.TargetAudio = lang.Normalize(targetAudioLang)
+				default:
+					continue
+				}
 			}
 
-			results = append(results, MediaItem{
-				ID:           item.RatingKey,
-				Name:         item.Title,
-				Year:         item.Year,
-				Path:         filePath,
-				ServerType:   "plex",
-				Streams:      streams,
-				HasBilingual: hasBilingual,
-			})
+			results = append(results, mi)
 		}
 	}
 
 	return results, nil
+}
+
+// FetchSubtitle only works for sidecar subtitles: Plex exposes them under the
+// stream key, while embedded tracks have no download endpoint.
+func (p *PlexAdapter) FetchSubtitle(item MediaItem, stream MediaStream) ([]byte, error) {
+	if stream.Key == "" {
+		return nil, fmt.Errorf("plex 不提供内嵌字幕轨下载，请改用本地文件或 ffprobe 探测轨道")
+	}
+	resp, err := p.get(stream.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("subtitle download returned status %d", resp.StatusCode)
+	}
+	return readAllLimited(resp.Body)
+}
+
+func (p *PlexAdapter) FetchPoster(itemID string, maxHeight int) (*http.Response, error) {
+	return p.get(fmt.Sprintf("/photo/:/transcode?width=%d&height=%d&minSize=1&url=%s",
+		maxHeight*2/3, maxHeight, url.QueryEscape("/library/metadata/"+itemID+"/thumb")))
 }
 
 func (p *PlexAdapter) RefreshItem(itemID string) error {

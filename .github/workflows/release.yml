@@ -6,10 +6,16 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
+  issues: read
+
 jobs:
-  build-and-release:
-    name: Build All-in-One Bundles
+  build-bundles:
+    name: Build Bundle (${{ matrix.artifact_name }})
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -17,10 +23,20 @@ jobs:
             arch: arm64
             artifact_name: babelsub-darwin-arm64
             ext: ""
+          - os: macos-13
+            platform: darwin
+            arch: amd64
+            artifact_name: babelsub-darwin-amd64
+            ext: ""
           - os: ubuntu-latest
             platform: linux
             arch: amd64
             artifact_name: babelsub-linux-amd64
+            ext: ""
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            artifact_name: babelsub-linux-arm64
             ext: ""
           - os: windows-latest
             platform: windows
@@ -37,7 +53,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,7 +69,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p bundle
-          ENTRY_SCRIPT=$(python -c 'import ffsubsync, os; print(os.path.join(os.path.dirname(ffsubsync.__file__), "ffsubsync.py"))')
+          ENTRY_SCRIPT=$(python -c 'import ffsubsync, os; print(os.path.join(os.path.dirname(ffsubsync.__file__), "ffsubsync.py").replace(os.sep, "/"))')
           pyinstaller --noconfirm --clean --onefile \
             --additional-hooks-dir=scripts/hooks \
             --name "ffsubsync${{ matrix.ext }}" \
@@ -64,7 +80,9 @@ jobs:
       - name: Build BabelSub Core Binary
         shell: bash
         run: |
-          go build -ldflags="-s -w" -o "bundle/babelsub${{ matrix.ext }}" ./cmd/babelsub
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then VERSION="dev-${GITHUB_SHA::7}"; fi
+          go build -ldflags="-s -w -X main.version=${VERSION}" -o "bundle/babelsub${{ matrix.ext }}" ./cmd/babelsub
 
       - name: Create Distribution Archive
         shell: bash
@@ -76,21 +94,41 @@ jobs:
             tar -czvf "../${{ matrix.artifact_name }}.tar.gz" *
           fi
 
-      - name: Upload Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
             *.zip
             *.tar.gz
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-bundles
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Download all bundles
+        uses: actions/download-artifact@v4
+        with:
+          path: release_bundles
+          pattern: babelsub-*
+          merge-multiple: true
+
+      - name: Inspect Bundles
+        run: |
+          echo "=== Release Bundles Ready for Publishing ==="
+          ls -lh release_bundles/
 
       - name: Publish to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            *.zip
-            *.tar.gz
+          files: release_bundles/*
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -20,26 +20,38 @@ BabelSub 通过对接 Emby / Jellyfin / Plex 的 API 快速读取库内影片信
 - **自动对轴**：基于 `ffsubsync`，用原语言字幕作为黄金参考基准，自动修正中文字幕的偏移和帧率拉伸。
 - **正常排版**：固定 1080p 画布基准（`PlayResX: 1920` / `PlayResY: 1080`），原语言大字、中文微缩居下，适配 Infuse 等播放器。
 - **即时刷新**：生成 `.zh-ja.ass` / `.zh-en.ass` 写回电影目录后，调用 API 通知媒体库局部刷新，Infuse 打开即可选择。
-- **自带 Web 界面**：除了命令行，也支持在浏览器里直接点选处理。
+- **直接处理 MKV / MP4**：用 ffprobe 读取内嵌音轨与字幕轨（STRM 指向的直链也只读文件头），可直接用内嵌文本字幕轨制作双语字幕，无需媒体服务器。
+- **自带 Web 界面**：媒体库分页浏览、在线检索字幕、选择字幕来源后一键制作，任务在后台排队执行；也可以浏览本机文件夹处理本地视频。
+
+![BabelSub Web 控制台](docs/web_preview.png)
 
 ---
 
 ## 依赖要求
 
-- **Go** (>= 1.21)
-- **ffmpeg** (用于音频流或媒体信息探测)
-- **Python 3** + **ffsubsync** (对轴核心)
+- **ffmpeg / ffprobe** (用于读取媒体轨道、提取内嵌字幕或音频对轴，请确保在系统 PATH 中或在设置中指定)
+- 若使用下方的预编译全功能包，**无需**安装 Python 与 ffsubsync（已内置封装独立的对轴引擎）。
 
 ---
 
-## 安装
+## 安装使用
 
-### 方式一：一键脚本
+### 方式一：下载开箱即用全功能包（推荐）
+直接在 [Releases](https://github.com/Gawain12/BabelSub/releases) 页面下载对应系统的压缩包：
+- `babelsub-darwin-arm64.tar.gz` (macOS Apple Silicon)
+- `babelsub-darwin-amd64.tar.gz` (macOS Intel)
+- `babelsub-linux-amd64.tar.gz` (Linux x86_64)
+- `babelsub-linux-arm64.tar.gz` (Linux ARM64)
+- `babelsub-windows-amd64.zip` (Windows x64)
+
+压缩包内已打包好 `babelsub` 与独立的 `ffsubsync` 可执行程序，解压后即可直接使用，免除任何 Python 环境配置。
+
+### 方式二：一键脚本（macOS / Linux）
 ```bash
 ./scripts/install.sh
 ```
 
-### 方式二：手动构建
+### 方式三：手动编译
 ```bash
 # 1. 准备 Python 虚拟环境并安装 ffsubsync
 python3 -m venv ~/.config/babelsub/venv
@@ -78,20 +90,40 @@ go build -o bin/babelsub ./cmd/babelsub
 ./bin/babelsub fetch --query "Swing Girls"
 ```
 
-### 4. 对轴并合并双语字幕
-拿一份参考字幕（通常是原语言字幕）和一份待对轴字幕（如中文），自动校准并导出 ASS：
+### 4. 查看视频内的轨道
 ```bash
-./bin/babelsub merge \
-  --ref "/path/to/japanese_ref.srt" \
-  --in "/path/to/chinese_raw.srt" \
-  --out "/path/to/output.zh-ja.ass"
+# 列出音轨、字幕轨（标明能否提取）以及同目录同名外挂字幕；也支持 http 直链
+./bin/babelsub probe ~/Movies/Swing.Girls.2004.mkv
 ```
 
-### 5. Web 控制台
+### 5. 对轴并合并双语字幕
+字幕来源可以是 `.srt / .ass / .ssa / .vtt` 文件、URL，或视频里的内嵌文本字幕轨：
 ```bash
-./bin/babelsub --port 18980
+# 两个字幕文件：以原语字幕为基准对齐中文字幕
+./bin/babelsub merge --ref ja.srt --in zh.ass --out movie.zh-ja.ass
+
+# 直接用 MKV 里的两条内嵌轨道（同一文件内默认不对轴），输出到视频旁 movie.zh-ja.ass
+./bin/babelsub merge --media movie.mkv --ref-track 2 --in-track 3
+
+# 两条外部字幕都不同步时，以视频音轨为基准对轴
+./bin/babelsub merge --media movie.mkv --ref ja.srt --in zh.srt --sync video
 ```
-启动后在浏览器打开 `http://localhost:18980`，可查看电影列表及双语状态。
+
+### 6. Web 控制台
+```bash
+./bin/babelsub --port 18980            # 仅本机使用可加 --listen 127.0.0.1
+```
+浏览器打开 `http://localhost:18980`：
+- **媒体库**：按语种 / 状态 / 关键词筛选，分页浏览；点开影片可查看文件位置与轨道、用 ffprobe 读取直链轨道、检索在线字幕，并选择上下两条字幕来源制作双语字幕。
+- **本地文件**：浏览本机文件夹（只读取当前这一层目录），选择视频后自动读取内嵌轨道和同名外挂字幕；不选视频也可以直接合并两个字幕文件。
+- **任务**：查看排队 / 进行中 / 已完成的任务、日志，下载生成的 ASS。
+- **设置**：服务器、默认语种、路径映射、字幕样式（带预览）、ffmpeg / ffsubsync 路径。
+
+### 路径映射
+媒体服务器里的路径（如 `/Movies/...`）在本机通常挂载在别处。配置映射后，BabelSub 才能把字幕写回影片目录并通知媒体库刷新；未配置时可以选择「仅生成，下载到本机」。
+```bash
+./bin/babelsub config --type emby --host http://192.168.1.100:8096 --token KEY --map /Movies=/Volumes/CloudDrive/115/Movies
+```
 
 ---
 
@@ -120,6 +152,12 @@ language:
   native_sub: zh                # 默认母语字幕语言
 
 ffsubsync_bin: ffsubsync        # 可指定绝对路径，如 ~/.config/babelsub/venv/bin/ffsubsync
+ffmpeg_bin: ""                  # 留空自动查找
+ffprobe_bin: ""
+
+path_mappings:                  # 服务器路径前缀 -> 本机路径前缀
+  - from: /Movies
+    to: /Volumes/CloudDrive/115/Movies
 ```
 
 ---

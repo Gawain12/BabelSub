@@ -23,4 +23,7 @@ __pycache__/
 # User local configs & testing artifacts
 tmp/
 temp/
+bundle/
+dist/
+release_bundles/
 *.test.*

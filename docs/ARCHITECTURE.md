@@ -30,8 +30,10 @@
 ```go
 type MediaServerAdapter interface {
     Ping() error
-    ListMovies(targetAudioLang string) ([]MediaItem, error)
+    ListMovies(targetAudioLang, nativeLang string) ([]MediaItem, error)
     RefreshItem(itemID string) error
+    FetchSubtitle(item MediaItem, stream MediaStream) ([]byte, error) // 由服务器转出 SRT
+    FetchPoster(itemID string, maxHeight int) (*http.Response, error)
 }
 ```
 
@@ -40,7 +42,14 @@ type MediaServerAdapter interface {
 - 公开搜索 HTML 页面解析；
 - 开放的公共 REST API（如 ASSRT、OpenSubtitles REST 等）。
 
-### 2.3 音频切片兜底对轴 (Audio Fallback)
+现有字幕源：ASSRT（`assrt.go`，中文字幕组字幕，需免费 token）、OpenSubtitles（`opensubtitles.go`，原语字幕，需 API key）、SubtitleCat（免 Key，多为机翻）。`Provider.Search` 并发检索所有已启用且配置了 key 的字幕源并合并结果（每条带 `provider` 字段）；`Provider.Fetch` 负责下载。需要临时下载链接的站点返回 `assrt://<id>`、`opensubtitles://<file_id>` 这类伪 URL，在 `Fetch` 时才换取真实链接，因此 Web 任务里的 `url` 来源可以直接保存它们。zip 压缩包会自动解出最合适的 srt / ass（优先简体中文单语）；rar / 7z 不支持，ASSRT 通过 `filelist` 中的单文件链接绕开。新增字幕源只需实现检索与（可选的）伪 URL 解析，并在 `Enabled` / `Search` / `Fetch` 中登记。
+
+### 2.3 本地 / 直链媒体 (`pkg/media`) 与制作流水线 (`pkg/pipeline`)
+- `pkg/media` 以子进程调用 ffprobe / ffmpeg：`Probe` 读取容器头（对 HTTP 直链只发 range 请求），`ExtractSubtitle` 提取内嵌文本字幕轨（需读完整个文件），`ConvertToSRT` 统一转为 UTF-8 SRT（自动识别 GBK）。`ListDir` / `Sidecars` 只读取单层目录，不递归。
+- `pkg/pipeline` 把「原语字幕 + 中文字幕」两个来源（文件 / 内嵌轨 / URL / 媒体服务器字幕轨）解析为 SRT → ffsubsync 对轴（以原语字幕或视频音轨为基准，或跳过）→ 生成 ASS。CLI `merge` 与 Web 任务共用这一流程；`JobManager` 串行执行 Web 任务。
+- 媒体服务器路径通过 `config.MapPath` 映射到本机路径后才会被读写。
+
+### 2.4 音频切片兜底对轴 (Audio Fallback)
 若某一电影在互联网上完全无法找到原语种字幕，可通过 `ffmpeg` 切取原片前 10~15 分钟的极轻量音频流（16kHz 单声道 mp3，仅需约 2~3MB 数据传输），传入 `ffsubsync` 的参考源参数：
 ```bash
 ffmpeg -ss 120 -t 600 -i <StreamURL> -ac 1 -ar 16000 -b:a 32k /tmp/ref_audio.mp3
@@ -55,11 +64,11 @@ ffsubsync /tmp/ref_audio.mp3 -i target.srt -o output.srt
 ```bash
 # 1. 单元编译检查
 go test ./...
-go build -o bin/subsync ./cmd/subsync
+go build -o bin/babelsub ./cmd/babelsub
 
 # 2. 验证服务器连通与读取
-./bin/subsync scan --lang ja
+./bin/babelsub scan --lang ja
 
 # 3. 验证字幕抓取
-./bin/subsync fetch --query "Swing Girls"
+./bin/babelsub fetch --query "Swing Girls"
 ```

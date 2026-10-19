@@ -3,17 +3,21 @@ package syncer
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 type Syncer struct {
 	FFsubsyncPath string
 }
 
-func findExecutable(name string) string {
+// FindExecutable locates a sidecar binary: next to the BabelSub executable, in the
+// BabelSub venv, then on PATH. It returns the bare name when nothing is found.
+func FindExecutable(name string) string {
 	// 1. Check current executable directory (for bundled distributions)
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
@@ -48,8 +52,9 @@ func findExecutable(name string) string {
 
 func NewSyncer(customPath string) *Syncer {
 	bin := customPath
-	if bin == "" {
-		bin = findExecutable("ffsubsync")
+	// "ffsubsync" is the shipped default; still prefer a bundled or venv copy over PATH.
+	if bin == "" || bin == "ffsubsync" {
+		bin = FindExecutable("ffsubsync")
 	}
 	return &Syncer{FFsubsyncPath: bin}
 }
@@ -64,23 +69,34 @@ func (s *Syncer) SyncWithContext(
 	progressCallback func(string),
 ) error {
 	cmd := exec.CommandContext(ctx, s.FFsubsyncPath, referencePath, "-i", targetSubPath, "-o", outputPath, "--encoding", "utf-8")
-	
-	stderrPipe, err := cmd.StderrPipe()
+
+	// ffsubsync writes progress to stderr and some errors to stdout; read both.
+	pr, pw, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("failed to open stderr pipe: %w", err)
+		return fmt.Errorf("failed to open output pipe: %w", err)
 	}
+	cmd.Stdout = pw
+	cmd.Stderr = pw
 
 	if err := cmd.Start(); err != nil {
+		pw.Close()
+		pr.Close()
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf("未找到 ffsubsync (%s)：请运行 scripts/install.sh，或在设置中填写 ffsubsync 路径", s.FFsubsyncPath)
+		}
 		return fmt.Errorf("failed to start ffsubsync (%s): %w", s.FFsubsyncPath, err)
 	}
+	pw.Close()
 
-	scanner := bufio.NewScanner(stderrPipe)
+	scanner := bufio.NewScanner(pr)
+	scanner.Split(scanLinesOrCR)
 	for scanner.Scan() {
-		line := scanner.Text()
-		if progressCallback != nil {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" && progressCallback != nil {
 			progressCallback(line)
 		}
 	}
+	pr.Close()
 
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("ffsubsync execution failed: %w", err)
@@ -90,4 +106,17 @@ func (s *Syncer) SyncWithContext(
 		return fmt.Errorf("sync output file empty or not generated")
 	}
 	return nil
+}
+
+// scanLinesOrCR splits on \n or \r so tqdm-style progress updates arrive as lines.
+func scanLinesOrCR(data []byte, atEOF bool) (int, []byte, error) {
+	for i, b := range data {
+		if b == '\n' || b == '\r' {
+			return i + 1, data[:i], nil
+		}
+	}
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }

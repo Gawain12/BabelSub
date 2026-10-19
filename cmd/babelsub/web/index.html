@@ -1,284 +1,1526 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>BabelSub (巴别字幕) - 媒体库双语字幕系统</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BabelSub</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f8cff'/%3E%3Cpath d='M8 12h16M8 20h10' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0c0e12; --panel: #14171c; --panel-2: #1a1e25; --hover: #1f242c; --border: #272c35; --border-strong: #353b46;
+  --text: #e7e9ec; --muted: #a0a8b3; --faint: #6c7581;
+  --accent: #4f8cff; --accent-hover: #6b9fff; --accent-weak: rgba(79,140,255,.14); --accent-text: #8fb4ff;
+  --ok: #3fb68b; --ok-weak: rgba(63,182,139,.14); --warn: #e3a843; --warn-weak: rgba(227,168,67,.14);
+  --err: #f0616d; --err-weak: rgba(240,97,109,.14);
+  --shadow: 0 12px 40px rgba(0,0,0,.45);
+  --radius: 10px; --radius-sm: 7px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f6f8; --panel: #ffffff; --panel-2: #f3f4f7; --hover: #eef0f4; --border: #e2e5ea; --border-strong: #cfd4dc;
+    --text: #1b1f24; --muted: #59616c; --faint: #8a929d;
+    --accent: #2f6fec; --accent-hover: #255fd0; --accent-weak: rgba(47,111,236,.1); --accent-text: #2459c4;
+    --ok: #1f9a6d; --ok-weak: rgba(31,154,109,.1); --warn: #b97a10; --warn-weak: rgba(185,122,16,.1);
+    --err: #d33c4a; --err-weak: rgba(211,60,74,.1);
+    --shadow: 0 12px 40px rgba(20,30,50,.16);
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); } .faint { color: var(--faint); }
+.hidden { display: none !important; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-flex { display: flex; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; }
+.spacer { flex: 1; }
+
+/* ---------- controls ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--panel-2); cursor: pointer; white-space: nowrap; font-size: 13px; transition: background .12s, border-color .12s; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.btn.danger { color: var(--err); }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 6px; }
+.btn.icon { width: 32px; padding: 0; }
+.btn.sm.icon { width: 26px; }
+.input, .select { height: 32px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg); outline: none; min-width: 0; }
+.input:focus, .select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.input.mono { font-size: 12px; }
+.select { padding-right: 26px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23889' fill='none' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; }
+.search { position: relative; }
+.search svg { position: absolute; left: 9px; top: 8px; color: var(--faint); }
+.search .input { padding-left: 30px; width: 100%; }
+.search kbd { position: absolute; right: 8px; top: 7px; }
+kbd { font-family: var(--mono); font-size: 11px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border-strong); color: var(--faint); background: var(--panel-2); }
+.seg { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--border); }
+.seg button { border: 0; background: transparent; height: 26px; padding: 0 10px; border-radius: 5px; cursor: pointer; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.seg button .n { color: var(--faint); margin-left: 4px; font-size: 12px; }
+label.check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+label.check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font-size: 12px; color: var(--muted); }
+.field .hint { font-size: 12px; color: var(--faint); }
+
+/* ---------- chips ---------- */
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+.chip.ok { background: var(--ok-weak); color: var(--ok); border-color: transparent; }
+.chip.warn { background: var(--warn-weak); color: var(--warn); border-color: transparent; }
+.chip.err { background: var(--err-weak); color: var(--err); border-color: transparent; }
+.chip.accent { background: var(--accent-weak); color: var(--accent-text); border-color: transparent; }
+.chip.lang { font-family: var(--mono); text-transform: uppercase; font-size: 11px; height: 20px; padding: 0 6px; border-radius: 5px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+/* ---------- layout ---------- */
+.topbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.topbar .inner { max-width: 1240px; margin: 0 auto; padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; letter-spacing: .2px; }
+.brand .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: #fff; }
+.brand small { font-weight: 400; color: var(--faint); font-size: 12px; }
+.nav { display: flex; gap: 2px; }
+.nav a { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: var(--radius-sm); color: var(--muted); font-size: 13.5px; }
+.nav a:hover { background: var(--hover); color: var(--text); text-decoration: none; }
+.nav a.on { background: var(--panel-2); color: var(--text); }
+.nav .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; display: inline-grid; place-items: center; }
+.envpill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); font-size: 12px; color: var(--muted); cursor: pointer; }
+.envpill.ok .dot { color: var(--ok); } .envpill.warn .dot { color: var(--warn); }
+main { max-width: 1240px; margin: 0 auto; padding: 20px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; }
+.toolbar .search { width: 260px; }
+.sub-toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+
+/* ---------- movie list ---------- */
+.list { margin-top: 12px; overflow: hidden; }
+.mrow { display: grid; grid-template-columns: 44px minmax(0,1fr) 64px 130px 110px 150px; gap: 14px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--border); cursor: pointer; }
+.mrow:first-child { border-top: 0; }
+.mrow:hover { background: var(--hover); }
+.mrow.sel { background: var(--accent-weak); }
+.mrow.head { cursor: default; background: var(--panel-2); color: var(--faint); font-size: 12px; padding-top: 8px; padding-bottom: 8px; }
+.mrow.head:hover { background: var(--panel-2); }
+.poster { width: 44px; height: 64px; border-radius: 5px; background: var(--panel-2); object-fit: cover; display: block; border: 1px solid var(--border); }
+.poster.ph { display: grid; place-items: center; color: var(--faint); font-size: 16px; font-weight: 600; }
+.mtitle { font-weight: 560; }
+.msub { font-size: 12px; color: var(--faint); margin-top: 2px; }
+.mactions { display: flex; justify-content: flex-end; gap: 6px; }
+.empty { padding: 56px 20px; text-align: center; color: var(--muted); }
+.empty h3 { margin: 10px 0 6px; color: var(--text); font-size: 16px; font-weight: 600; }
+.empty p { margin: 0 auto 16px; max-width: 460px; }
+.empty .big { width: 40px; height: 40px; color: var(--faint); }
+.skel { height: 82px; border-top: 1px solid var(--border); background: linear-gradient(90deg, transparent, var(--hover), transparent); background-size: 300% 100%; animation: sk 1.4s infinite; }
+@keyframes sk { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+
+.pager { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.pages { display: flex; gap: 4px; }
+.pages button { min-width: 30px; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--muted); }
+.pages button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.pages button.on { border-color: var(--border-strong); background: var(--panel-2); color: var(--text); font-weight: 600; }
+.pages button:disabled { opacity: .35; cursor: default; }
+.pages .gap { min-width: 20px; text-align: center; line-height: 30px; color: var(--faint); }
+.pager .jump { width: 56px; height: 28px; text-align: center; }
+
+/* ---------- drawer & modal ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .18s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--panel); border-left: 1px solid var(--border); z-index: 41; transform: translateX(100%); transition: transform .22s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; box-shadow: var(--shadow); }
+.drawer.on { transform: none; }
+.dhead { display: flex; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+.dhead .poster { width: 72px; height: 104px; }
+.dhead h2 { margin: 0; font-size: 18px; font-weight: 650; line-height: 1.3; }
+.dbody { flex: 1; overflow-y: auto; padding: 4px 20px 28px; }
+.sec { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.sec:last-child { border-bottom: 0; }
+.sec > h4 { margin: 0 0 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.sec > h4 .n { font-weight: 400; color: var(--faint); }
+.kv { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 6px 10px; font-size: 13px; align-items: start; }
+.kv > div:nth-child(odd) { color: var(--faint); }
+.kv .path { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.note { display: flex; gap: 8px; padding: 9px 11px; border-radius: var(--radius-sm); background: var(--panel-2); font-size: 12.5px; color: var(--muted); margin-top: 10px; align-items: flex-start; }
+.note svg { margin-top: 2px; }
+.note.warn { background: var(--warn-weak); color: var(--warn); }
+.note.err { background: var(--err-weak); color: var(--err); }
+.note.ok { background: var(--ok-weak); color: var(--ok); }
+.tracks { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.track { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 13px; border-top: 1px solid var(--border); }
+.track:first-child { border-top: 0; }
+.track .idx { font-family: var(--mono); font-size: 11px; color: var(--faint); width: 26px; }
+.track.dis { opacity: .5; }
+.results { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.result { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--radius-sm); background: var(--panel-2); font-size: 12.5px; }
+.result .name { flex: 1; min-width: 0; }
+.seg.wrap { flex-wrap: wrap; }
+.result .name .meta { display: block; color: var(--faint); font-size: 11.5px; }
+.chip.prov { height: 20px; padding: 0 6px; border-radius: 5px; font-size: 11px; }
+.provrow { display: grid; grid-template-columns: 150px 1fr; gap: 6px 14px; align-items: start; padding: 12px 0; border-top: 1px solid var(--border); }
+.provrow:first-child { border-top: 0; padding-top: 0; }
+
+.modal-wrap { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; }
+.modal { width: min(760px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+.modal.sm { width: min(440px, 100%); }
+.mhead { display: flex; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.mhead h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.mbody { display: flex; min-height: 0; flex: 1; }
+.mfoot { display: flex; gap: 8px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border); }
+.tabs-v { width: 160px; flex: none; border-right: 1px solid var(--border); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+.tabs-v button { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 0; background: transparent; border-radius: 6px; color: var(--muted); cursor: pointer; text-align: left; font-size: 13px; }
+.tabs-v button:hover { background: var(--hover); color: var(--text); }
+.tabs-v button.on { background: var(--panel-2); color: var(--text); }
+.tabpane { flex: 1; padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.maprow { display: grid; grid-template-columns: 1fr 18px 1fr 30px; gap: 6px; align-items: center; }
+.preview { position: relative; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: linear-gradient(160deg, #2b3a4a, #1a2230 55%, #3a2f2a); }
+.preview .lines { position: absolute; left: 0; right: 0; text-align: center; line-height: 1.2; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px #000; }
+.toolrow { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; }
+
+/* ---------- builder ---------- */
+.builder { display: flex; flex-direction: column; gap: 12px; }
+.slot { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.slot .lbl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.slot .lbl b { color: var(--text); font-weight: 600; }
+.slot .select { width: 100%; }
+.slot .inline { display: flex; gap: 6px; }
+.slot .inline .input { flex: 1; }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opt { display: flex; gap: 9px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.opt:hover { background: var(--hover); }
+.opt.on { border-color: var(--accent); background: var(--accent-weak); }
+.opt.dis { opacity: .45; cursor: not-allowed; }
+.opt input { margin: 3px 0 0; accent-color: var(--accent); }
+.opt .t { font-size: 13px; }
+.opt .d { font-size: 12px; color: var(--faint); }
+.job { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.bar { height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.bar > div { height: 100%; background: var(--accent); transition: width .3s; }
+.bar.ok > div { background: var(--ok); } .bar.err > div { background: var(--err); }
+.bar.run > div { background-image: linear-gradient(90deg, var(--accent), var(--accent-hover), var(--accent)); background-size: 200% 100%; animation: sk 1.2s linear infinite; }
+.logs { font-family: var(--mono); font-size: 11.5px; line-height: 1.55; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+
+/* ---------- local ---------- */
+.local { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.browser { display: flex; flex-direction: column; max-height: calc(100vh - 100px); position: sticky; top: 76px; }
+.browser .pathbar { display: flex; gap: 6px; padding: 12px; border-bottom: 1px solid var(--border); }
+.browser .pathbar .input { flex: 1; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid var(--border); }
+.crumbs button { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.crumbs button:hover { background: var(--hover); color: var(--text); }
+.crumbs span { color: var(--faint); }
+.entries { overflow-y: auto; flex: 1; padding: 4px; }
+.entry { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.entry:hover { background: var(--hover); }
+.entry.sel { background: var(--accent-weak); }
+.entry .ico { color: var(--faint); } .entry.video .ico { color: var(--accent-text); } .entry.subtitle .ico { color: var(--ok); }
+.entry .sz { font-size: 11.5px; color: var(--faint); margin-left: auto; padding-left: 8px; white-space: nowrap; }
+.roots { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; }
+.panel-pad { padding: 18px 20px; }
+.panel-pad h2 { margin: 0; font-size: 17px; font-weight: 650; word-break: break-all; }
+
+/* ---------- jobs ---------- */
+.jrow { display: grid; grid-template-columns: minmax(0,1fr) 110px 150px 120px; gap: 12px; align-items: center; padding: 11px 14px; border-top: 1px solid var(--border); }
+.jrow:first-child { border-top: 0; }
+.jrow.head { background: var(--panel-2); color: var(--faint); font-size: 12px; padding-top: 8px; padding-bottom: 8px; }
+.jdetail { padding: 0 14px 12px; }
+
+/* ---------- toast ---------- */
+.toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 9px; padding: 9px 14px; border-radius: 9px; background: var(--panel); border: 1px solid var(--border-strong); box-shadow: var(--shadow); font-size: 13px; max-width: min(560px, calc(100vw - 32px)); animation: tin .2s; }
+.toast.ok svg { color: var(--ok); } .toast.err svg { color: var(--err); } .toast.info svg { color: var(--accent-text); }
+@keyframes tin { from { opacity: 0; transform: translateY(8px) } }
+.spin { animation: rot 1s linear infinite; } @keyframes rot { to { transform: rotate(360deg) } }
+
+@media (max-width: 900px) {
+  .mrow { grid-template-columns: 40px minmax(0,1fr) auto; }
+  .mrow .c-year, .mrow .c-audio, .mrow.head { display: none; }
+  .mrow .c-status { display: none; }
+  .msub .m-only { display: inline; }
+  .local { grid-template-columns: 1fr; }
+  .browser { position: static; max-height: 46vh; }
+  .jrow { grid-template-columns: minmax(0,1fr) auto; }
+  .jrow .c-time, .jrow.head { display: none; }
+}
+@media (min-width: 901px) { .msub .m-only { display: none; } }
+@media (max-width: 640px) {
+  .topbar .inner { padding: 0 12px; gap: 10px; }
+  .brand small, .nav a span.t, .envpill span.t { display: none; }
+  main { padding: 12px; }
+  .toolbar .search { width: 100%; }
+  .mactions .btn .t { display: none; }
+  .mbody { flex-direction: column; }
+  .tabs-v { width: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .grid2 { grid-template-columns: 1fr; }
+  .dhead .poster { width: 56px; height: 80px; }
+  .result { flex-wrap: wrap; }
+  .result .name { flex-basis: calc(100% - 60px); order: -1; }
+  .sub-toolbar .hint-wide { display: none; }
+}
+</style>
 </head>
-<body class="p-6">
-  <div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="flex items-center justify-between pb-6 mb-4 border-b border-[#30363d]">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-500/20">
-          <i class="fa-solid fa-earth-asia"></i>
-        </div>
-        <div>
-          <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-            BabelSub <span class="text-xs px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 font-normal border border-blue-700">Language Immersion</span>
-          </h1>
-          <p class="text-xs text-gray-400">零扫盘 · 自动对轴 · 媒体库外语双语字幕系统</p>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="openConfigModal()" class="px-4 py-2 bg-[#21262d] hover:bg-[#30363d] text-white rounded text-sm flex items-center gap-2 border border-[#30363d]">
-          <i class="fa-solid fa-gear"></i> 服务器设置
-        </button>
-        <button onclick="loadMovies()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-2">
-          <i class="fa-solid fa-rotate"></i> 检索影视库
-        </button>
-      </div>
+<body>
+<header class="topbar">
+  <div class="inner">
+    <div class="brand">
+      <div class="logo"><svg class="i" viewBox="0 0 24 24"><path d="M5 9h14M5 15h9"/></svg></div>
+      <div>BabelSub <small id="ver"></small></div>
     </div>
-
-    <!-- Notice Banner -->
-    <div class="bg-[#161b22] border border-[#30363d] rounded p-3 mb-6 flex items-center justify-between text-xs text-gray-400">
-      <span><i class="fa-solid fa-circle-info text-blue-400 mr-1.5"></i> 提示：本工具仅负责字幕对轴、格式排版与媒体库回写，字幕内容取自对应公开源或原盘轨。</span>
-      <span class="text-gray-500">v0.1.0</span>
-    </div>
-
-    <!-- Filter & Status Bar -->
-    <div class="card p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-4 flex-wrap">
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400">学习原声语种:</label>
-          <select id="langSelect" onchange="loadMovies()" class="bg-[#0d1117] border border-[#30363d] text-white text-sm rounded px-3 py-1.5">
-            <option value="ja" selected>日语 (Japanese)</option>
-            <option value="en">英语 (English)</option>
-            <option value="fr">法语 (French)</option>
-            <option value="ko">韩语 (Korean)</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="missingOnly" onchange="filterList()" class="rounded bg-[#0d1117] border-[#30363d]">
-          <label for="missingOnly" class="text-sm text-gray-300">仅显示未就绪双语</label>
-        </div>
-        <div class="flex items-center gap-2">
-          <input id="searchKeyword" type="text" oninput="filterList()" placeholder="按片名搜索..." class="bg-[#0d1117] border border-[#30363d] text-white text-xs rounded px-3 py-1.5 w-44">
-        </div>
-      </div>
-      <div id="statsBadge" class="text-sm text-gray-400">正在获取...</div>
-    </div>
-
-    <!-- Movie Table -->
-    <div class="card overflow-hidden">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-[#21262d] text-gray-300">
-          <tr>
-            <th class="p-3">电影名称</th>
-            <th class="p-3">年份</th>
-            <th class="p-3">音轨 / 字幕轨</th>
-            <th class="p-3">双语状态</th>
-            <th class="p-3 text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody id="movieTableBody" class="divide-y divide-[#30363d]">
-          <tr><td colspan="5" class="p-8 text-center text-gray-500">加载中...</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <nav class="nav" id="nav">
+      <a href="#library" data-view="library"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg><span class="t">媒体库</span></a>
+      <a href="#local" data-view="local"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="t">本地文件</span></a>
+      <a href="#jobs" data-view="jobs"><svg class="i" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg><span class="t">任务</span><span class="badge hidden" id="jobBadge">0</span></a>
+    </nav>
+    <div class="spacer"></div>
+    <button class="envpill" id="envPill" data-action="openSettings" data-tab="env"><span class="dot"></span><span class="t">检测环境…</span></button>
+    <button class="btn icon ghost" data-action="openSettings" title="设置"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
+</header>
 
-  <!-- Subtitle Fetch Modal -->
-  <div id="fetchModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4 z-50">
-    <div class="card max-w-xl w-full p-6">
-      <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#30363d]">
-        <h3 id="fetchModalTitle" class="text-base font-bold text-white">检索公开字幕</h3>
-        <button onclick="closeFetchModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div id="fetchModalContent" class="space-y-3 max-h-96 overflow-y-auto">
-        <div class="text-center text-gray-500 py-6">正在向公开源嗅探字幕轨...</div>
-      </div>
-      <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-[#30363d]">
-        <button onclick="closeFetchModal()" class="px-4 py-2 bg-[#21262d] text-gray-300 rounded text-xs">关闭</button>
-      </div>
-    </div>
-  </div>
+<main>
+  <section id="view-library"></section>
+  <section id="view-local" class="hidden"></section>
+  <section id="view-jobs" class="hidden"></section>
+</main>
 
-  <!-- Config Modal -->
-  <div id="configModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4 z-50">
-    <div class="card max-w-md w-full p-6">
-      <h3 class="text-lg font-bold text-white mb-4">媒体库连接设置</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">服务类型</label>
-          <select id="cfgType" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-white text-sm">
-            <option value="emby">Emby</option>
-            <option value="jellyfin">Jellyfin</option>
-            <option value="plex">Plex</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">服务器地址 (Host)</label>
-          <input id="cfgHost" type="text" placeholder="http://192.168.1.100:8096" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-white text-sm">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">API Token / Key</label>
-          <input id="cfgToken" type="password" placeholder="Emby API Key 或 Plex Token" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-white text-sm">
-        </div>
-      </div>
-      <div class="flex justify-end gap-2 mt-6">
-        <button onclick="closeConfigModal()" class="px-4 py-2 bg-[#21262d] text-gray-300 rounded text-sm">取消</button>
-        <button onclick="saveConfig()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm">测试并保存</button>
-      </div>
-    </div>
-  </div>
+<div class="scrim" id="scrim" data-action="closeOverlay"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div id="modalRoot"></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="fileInput" accept=".srt,.ass,.ssa,.vtt" class="hidden">
 
-  <script>
-    let allMovies = [];
+<script>
+'use strict';
+/* ================= utilities ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('babelsub.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('babelsub.' + k, JSON.stringify(v)); } catch {} },
+};
 
-    async function fetchConfig() {
-      const res = await fetch('/api/config');
-      const cfg = await res.json();
-      document.getElementById('cfgType').value = (cfg.server && cfg.server.type) || 'emby';
-      document.getElementById('cfgHost').value = (cfg.server && cfg.server.host) || '';
-      document.getElementById('cfgToken').value = (cfg.server && cfg.server.token) || '';
-      if (!cfg.server || !cfg.server.host || !cfg.server.token) {
-        openConfigModal();
-      } else {
-        loadMovies();
-      }
-    }
+async function api(path, opts = {}) {
+  if (opts.json !== undefined) {
+    opts.method = opts.method || 'POST';
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(opts.json);
+  }
+  const res = await fetch(path, opts);
+  let data = null;
+  const text = await res.text();
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || res.statusText || ('HTTP ' + res.status));
+    err.status = res.status; err.data = data;
+    throw err;
+  }
+  return data;
+}
 
-    function openConfigModal() { document.getElementById('configModal').classList.remove('hidden'); }
-    function closeConfigModal() { document.getElementById('configModal').classList.add('hidden'); }
-    function closeFetchModal() { document.getElementById('fetchModal').classList.add('hidden'); }
+const ICONS = {
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>',
+  wand: '<path d="m15 4 5 5L9 20H4v-5z"/><path d="m13 6 5 5"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  film: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M3 12h18"/>',
+  sub: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M13 15h4M7 11h10"/>',
+  up: '<path d="m18 15-6-6-6 6"/>',
+  left: '<path d="m15 18-6-6 6-6"/>', right: '<path d="m9 18 6-6-6-6"/>',
+  first: '<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>', last: '<path d="m13 17 5-5-5-5M6 17l5-5-5-5"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+  loader: '<path d="M21 12a9 9 0 1 1-6.2-8.6"/>', server: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>',
+  type: '<path d="M4 7V4h16v3M9 20h6M12 4v16"/>', map: '<path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3z"/><path d="M9 3v15M15 6v15"/>',
+  tool: '<path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.3-2.3a4 4 0 0 0-5-5L2 10l8-8z"/>',
+  lang: '<path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>',
+  ext: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+};
+const icon = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24">${ICONS[n] || ''}</svg>`;
 
-    async function saveConfig() {
-      const data = {
-        server: {
-          type: document.getElementById('cfgType').value,
-          host: document.getElementById('cfgHost').value,
-          token: document.getElementById('cfgToken').value
-        },
-        language: {
-          target_audio: document.getElementById('langSelect').value,
-          native_sub: 'zh'
-        }
-      };
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-      });
-      if (res.ok) {
-        closeConfigModal();
-        loadMovies();
-      } else {
-        const err = await res.text();
-        alert('保存失败: ' + err);
-      }
-    }
+function toast(msg, kind = 'info', ms = 3600) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.innerHTML = icon(kind === 'ok' ? 'check' : kind === 'err' ? 'alert' : 'info') + `<span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), ms);
+}
 
-    async function loadMovies() {
-      const lang = document.getElementById('langSelect').value;
-      document.getElementById('statsBadge').innerText = '正在零扫盘检索媒体库条目...';
-      try {
-        const res = await fetch('/api/movies?lang=' + lang);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        allMovies = data.movies || [];
-        filterList();
-      } catch (e) {
-        document.getElementById('movieTableBody').innerHTML = '<tr><td colspan="5" class="p-8 text-center text-red-400">获取失败: ' + e.message + '</td></tr>';
-      }
-    }
+const LANGS = [
+  ['ja', '日语'], ['en', '英语'], ['ko', '韩语'], ['fr', '法语'], ['de', '德语'], ['es', '西班牙语'],
+  ['it', '意大利语'], ['ru', '俄语'], ['pt', '葡萄牙语'], ['th', '泰语'], ['zh', '中文'],
+];
+// Display names for languages that only show up in search results.
+const EXTRA_LANG_NAMES = { nl: '荷兰语', ar: '阿拉伯语', vi: '越南语', id: '印尼语', ms: '马来语', tr: '土耳其语', pl: '波兰语', sv: '瑞典语',
+  cs: '捷克语', el: '希腊语', he: '希伯来语', hi: '印地语', ro: '罗马尼亚语', hu: '匈牙利语', fa: '波斯语', bg: '保加利亚语', da: '丹麦语',
+  fi: '芬兰语', no: '挪威语', uk: '乌克兰语', bn: '孟加拉语', ta: '泰米尔语', te: '泰卢固语', ml: '马拉雅拉姆语', si: '僧伽罗语' };
+const LANG_ALIAS = { jpn: 'ja', japanese: 'ja', eng: 'en', english: 'en', kor: 'ko', korean: 'ko', fre: 'fr', fra: 'fr', french: 'fr',
+  ger: 'de', deu: 'de', german: 'de', spa: 'es', spanish: 'es', ita: 'it', italian: 'it', rus: 'ru', russian: 'ru', por: 'pt', tha: 'th',
+  chi: 'zh', zho: 'zh', chs: 'zh', cht: 'zh', chinese: 'zh', cmn: 'zh', yue: 'zh', cn: 'zh', tw: 'zh', br: 'pt', '419': 'es', iw: 'he', und: '' };
+function normLang(l) {
+  if (!l) return '';
+  l = String(l).toLowerCase().trim();
+  if (LANG_ALIAS[l] !== undefined) return LANG_ALIAS[l];
+  const head = l.split(/[-_]/)[0];
+  return LANG_ALIAS[head] !== undefined ? LANG_ALIAS[head] : head;
+}
+const langName = l => { const n = normLang(l); return (LANGS.find(x => x[0] === n) || [])[1] || EXTRA_LANG_NAMES[n] || l || '未知'; };
 
-    function filterList() {
-      const missingOnly = document.getElementById('missingOnly').checked;
-      const kw = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
-      
-      let list = allMovies;
-      if (missingOnly) {
-        list = list.filter(m => !m.has_bilingual);
-      }
-      if (kw) {
-        list = list.filter(m => (m.name || '').toLowerCase().includes(kw) || (m.original_title || '').toLowerCase().includes(kw));
-      }
+const fmtRuntime = s => !s ? '' : s < 60 ? `${Math.round(s)}秒` : s >= 3600 ? `${Math.floor(s / 3600)}小时${Math.floor(s % 3600 / 60)}分` : `${Math.round(s / 60)}分钟`;
+const fmtSize = b => !b ? '' : b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+function fmtAgo(t) {
+  const d = (Date.now() - new Date(t).getTime()) / 1000;
+  if (!isFinite(d)) return '';
+  if (d < 60) return '刚刚';
+  if (d < 3600) return Math.floor(d / 60) + ' 分钟前';
+  if (d < 86400) return Math.floor(d / 3600) + ' 小时前';
+  return Math.floor(d / 86400) + ' 天前';
+}
+const fmtTime = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); };
+const baseName = p => String(p || '').split(/[\\/]/).pop();
+const dirName = p => { const s = String(p || ''); const i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\')); return i > 0 ? s.slice(0, i) : s; };
+const sepOf = p => String(p).includes('\\') && !String(p).includes('/') ? '\\' : '/';
+function cleanTitleFromFile(name) {
+  let s = name.replace(/\.[^.]+$/, '').replace(/[._]/g, ' ');
+  const m = s.match(/^(.*?)\s*[\[(]?(19|20)\d{2}[\])]?/);
+  if (m && m[1].trim().length > 1) s = m[1];
+  return s.replace(/\b(1080p|2160p|720p|4k|bluray|web-?dl|x26[45]|hevc|remux)\b.*$/i, '').trim();
+}
+async function copyText(t) { try { await navigator.clipboard.writeText(t); toast('已复制', 'ok', 1500); } catch { toast('复制失败', 'err'); } }
 
-      document.getElementById('statsBadge').innerText = '共匹配 ' + allMovies.length + ' 部影片，当前显示 ' + list.length + ' 部';
-      
-      const tbody = document.getElementById('movieTableBody');
-      if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-500">无符合条件的电影条目</td></tr>';
-        return;
-      }
+/* ================= state ================= */
+const S = {
+  status: null, config: null, view: 'library',
+  lib: { movies: [], cachedAt: null, loading: false, error: null, loadedLang: null },
+  filter: Object.assign({ lang: null, status: 'all', q: '', sort: 'name', page: 1, size: 50 }, store.get('filter', {}), { page: 1, q: '' }),
+  drawer: null, // { id, detail, probe, probing, online, builder }
+  local: { path: store.get('localPath', ''), data: null, roots: [], selected: null, probe: null, probing: false, sidecars: [], online: null, builder: null, error: null },
+  jobs: [],
+};
+const saveFilter = () => store.set('filter', { lang: S.filter.lang, status: S.filter.status, sort: S.filter.sort, size: S.filter.size });
 
-      tbody.innerHTML = list.map(m => {
-        const subCount = (m.streams || []).filter(s => s.type === 'Subtitle').length;
-        const tag = m.has_bilingual
-          ? '<span class="text-green-400 text-xs px-2 py-1 rounded bg-green-950/40 border border-green-800"><i class="fa-solid fa-check"></i> 双语已就绪</span>'
-          : '<span class="text-amber-400 text-xs px-2 py-1 rounded bg-amber-950/40 border border-amber-800"><i class="fa-solid fa-clock"></i> 待制备</span>';
-        
-        return '<tr class="hover:bg-[#1c2128]">' +
-          '<td class="p-3">' +
-            '<div class="font-medium text-white">' + m.name + '</div>' +
-            '<div class="text-xs text-gray-400 truncate max-w-md">' + m.path + '</div>' +
-          '</td>' +
-          '<td class="p-3 text-gray-400">' + (m.year || '-') + '</td>' +
-          '<td class="p-3">' +
-            '<span class="inline-block px-2 py-0.5 text-xs bg-blue-900/40 text-blue-300 rounded border border-blue-800 mr-1">' + (m.target_audio || '音频') + '</span>' +
-            '<span class="inline-block px-2 py-0.5 text-xs bg-gray-800 text-gray-300 rounded">' + subCount + ' 条字幕</span>' +
-          '</td>' +
-          '<td class="p-3">' + tag + '</td>' +
-          '<td class="p-3 text-right space-x-1">' +
-            '<button onclick="searchOnlineSub(\'' + encodeURIComponent(m.original_title || m.name) + '\')" class="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-xs text-blue-400 rounded border border-[#30363d]">' +
-              '<i class="fa-solid fa-cloud-arrow-down mr-1"></i>找字幕' +
-            '</button>' +
-            '<button onclick="refreshMovie(\'' + m.id + '\')" class="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-xs text-gray-300 rounded border border-[#30363d]">' +
-              '刷新挂载' +
-            '</button>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
-    }
+/* ================= boot ================= */
+async function boot() {
+  window.addEventListener('hashchange', route);
+  document.addEventListener('click', onClick);
+  document.addEventListener('change', onChange);
+  document.addEventListener('input', onInput);
+  document.addEventListener('compositionend', e => onInput({ target: e.target, isComposing: false }));
+  document.addEventListener('keydown', onKey);
+  $('#fileInput').addEventListener('change', onFilePicked);
+  try {
+    [S.status, S.config] = await Promise.all([api('/api/status'), api('/api/config')]);
+  } catch (e) {
+    toast('无法连接 BabelSub 服务: ' + e.message, 'err', 8000);
+    return;
+  }
+  if (S.filter.lang == null) S.filter.lang = S.config.language?.target_audio || 'ja';
+  $('#ver').textContent = 'v' + S.status.version;
+  renderEnvPill();
+  route();
+  refreshJobs();
+}
 
-    async function searchOnlineSub(title) {
-      const decoded = decodeURIComponent(title);
-      document.getElementById('fetchModalTitle').innerText = '为《' + decoded + '》检索公开字幕';
-      document.getElementById('fetchModalContent').innerHTML = '<div class="text-center text-gray-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-2"></i>正在检索公开源...</div>';
-      document.getElementById('fetchModal').classList.remove('hidden');
+function route() {
+  const v = (location.hash || '#library').slice(1);
+  S.view = ['library', 'local', 'jobs'].includes(v) ? v : 'library';
+  $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.view === S.view));
+  ['library', 'local', 'jobs'].forEach(n => $('#view-' + n).classList.toggle('hidden', n !== S.view));
+  if (S.view === 'library') {
+    if (S.config.server?.host && S.lib.loadedLang !== S.filter.lang && !S.lib.loading) loadMovies();
+    else renderLibrary();
+  } else if (S.view === 'local') {
+    if (!S.local.data) openLocalPath(S.local.path || '');
+    else renderLocal();
+  } else renderJobs();
+}
 
-      try {
-        const res = await fetch('/api/fetch?query=' + encodeURIComponent(decoded));
-        const data = await res.json();
-        const sources = data.sources || [];
-        if (sources.length === 0) {
-          document.getElementById('fetchModalContent').innerHTML = '<div class="text-center text-gray-500 py-6">暂未检索到公开字幕轨，可稍后在终端运行音频切片对轴。</div>';
-          return;
-        }
+function renderEnvPill() {
+  const t = S.status.tools;
+  const missing = ['ffmpeg', 'ffprobe', 'ffsubsync'].filter(k => !t[k].ok);
+  const el = $('#envPill');
+  el.className = 'envpill ' + (missing.length ? 'warn' : 'ok');
+  el.innerHTML = `<span class="dot"></span><span class="t">${missing.length ? '缺少 ' + missing.join(' / ') : '环境就绪'}</span>`;
+}
 
-        document.getElementById('fetchModalContent').innerHTML = sources.map(s => `
-          <div class="flex items-center justify-between p-2.5 bg-[#0d1117] border border-[#30363d] rounded text-xs">
-            <div class="flex items-center gap-2 truncate max-w-sm">
-              <span class="px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 uppercase font-mono">${s.language}</span>
-              <span class="text-gray-200 truncate">${s.filename}</span>
-            </div>
-            <a href="${s.download_url}" target="_blank" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs">
-              <i class="fa-solid fa-download mr-1"></i>下载
-            </a>
+/* ================= library ================= */
+async function loadMovies(refresh = false, silent = false) {
+  S.lib.loading = true; S.lib.error = null;
+  renderLibrary();
+  try {
+    const q = new URLSearchParams({ lang: S.filter.lang || '' });
+    if (refresh) q.set('refresh', '1');
+    const data = await api('/api/movies?' + q);
+    S.lib.movies = data.movies || [];
+    S.lib.cachedAt = data.cached_at;
+    S.lib.loadedLang = S.filter.lang;
+    if (refresh && !silent) toast(`已从媒体库重新读取 ${S.lib.movies.length} 部影片`, 'ok');
+    // A list restored from disk is shown at once and quietly refreshed when stale.
+    if (!refresh && Date.now() - new Date(S.lib.cachedAt).getTime() > 6 * 3600e3) setTimeout(() => loadMovies(true, true), 0);
+  } catch (e) {
+    S.lib.error = e.message;
+  }
+  S.lib.loading = false;
+  renderLibrary();
+}
+
+function filteredMovies() {
+  const f = S.filter, kw = f.q.trim().toLowerCase();
+  let list = S.lib.movies;
+  if (f.status === 'missing') list = list.filter(m => !m.has_bilingual);
+  if (f.status === 'ready') list = list.filter(m => m.has_bilingual);
+  if (kw) list = list.filter(m => (m.name || '').toLowerCase().includes(kw) || (m.original_title || '').toLowerCase().includes(kw) || String(m.year || '') === kw);
+  const by = {
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'zh'),
+    year_desc: (a, b) => (b.year || 0) - (a.year || 0),
+    year_asc: (a, b) => (a.year || 9999) - (b.year || 9999),
+    added: (a, b) => String(b.date_created || '').localeCompare(String(a.date_created || '')),
+    missing_first: (a, b) => (a.has_bilingual - b.has_bilingual) || (a.name || '').localeCompare(b.name || '', 'zh'),
+  }[f.sort] || (() => 0);
+  return [...list].sort(by);
+}
+
+function renderLibrary(listOnly = false) {
+  const root = $('#view-library');
+  if (!S.config.server?.host) {
+    root.innerHTML = `<div class="card empty">
+      ${icon('server', 'big')}
+      <h3>连接你的媒体服务器</h3>
+      <p>BabelSub 通过 Emby / Jellyfin / Plex 的 API 读取影片列表，不扫描网盘目录。也可以跳过这一步，直接处理本机的 MKV / MP4 文件。</p>
+      <div class="row-flex" style="justify-content:center">
+        <button class="btn primary" data-action="openSettings" data-tab="server">连接服务器</button>
+        <a class="btn" href="#local">处理本地文件</a>
+      </div></div>`;
+    return;
+  }
+  const f = S.filter;
+  const all = S.lib.movies;
+  const counts = { all: all.length, missing: all.filter(m => !m.has_bilingual).length, ready: all.filter(m => m.has_bilingual).length };
+  const list = filteredMovies();
+  const pages = Math.max(1, Math.ceil(list.length / f.size));
+  if (f.page > pages) f.page = pages;
+  const start = (f.page - 1) * f.size;
+  const pageItems = list.slice(start, start + f.size);
+
+  const langOpts = [['', '全部语种'], ...LANGS.filter(l => l[0] !== 'zh')].map(([v, n]) => `<option value="${v}" ${f.lang === v ? 'selected' : ''}>${v ? n + ' · ' + v : n}</option>`).join('');
+
+  let body;
+  if (S.lib.loading && !all.length) {
+    body = '<div class="mrow head"><div></div><div>影片</div></div>' + '<div class="skel"></div>'.repeat(6);
+  } else if (S.lib.error) {
+    body = `<div class="empty">${icon('alert', 'big')}<h3>读取媒体库失败</h3><p>${esc(S.lib.error)}</p>
+      <div class="row-flex" style="justify-content:center"><button class="btn" data-action="reload">重试</button><button class="btn" data-action="openSettings" data-tab="server">检查服务器设置</button></div></div>`;
+  } else if (!list.length) {
+    body = `<div class="empty">${icon('search', 'big')}<h3>${all.length ? '没有符合条件的影片' : '这个语种下没有影片'}</h3>
+      <p>${all.length ? '换个关键词或状态筛选试试。' : '可以切换语种，或选择「全部语种」查看整个媒体库。'}</p>
+      ${f.q || f.status !== 'all' ? '<button class="btn" data-action="clearFilter">清除筛选</button>' : ''}</div>`;
+  } else {
+    const sel = S.drawer?.id;
+    body = `<div class="mrow head"><div></div><div>影片</div><div class="c-year">年份</div><div class="c-audio">原声 / 字幕</div><div class="c-status">双语</div><div></div></div>` +
+      pageItems.map(m => {
+        const subs = (m.streams || []).filter(s => s.type === 'Subtitle').length;
+        const audio = m.target_audio ? `<span class="chip lang" title="${m.matched_by === 'country' ? '无音轨信息，按出品国家推断' : '音轨语言'}">${esc(normLang(m.target_audio) || m.target_audio)}${m.matched_by === 'country' ? '?' : ''}</span>` : '';
+        const status = m.has_bilingual ? `<span class="chip ok">${icon('check')}已就绪</span>` : `<span class="chip warn">待制备</span>`;
+        return `<div class="mrow ${sel === m.id ? 'sel' : ''}" data-action="openMovie" data-id="${esc(m.id)}">
+          ${posterHTML(m)}
+          <div style="min-width:0">
+            <div class="mtitle truncate">${esc(m.name)}</div>
+            <div class="msub truncate">${m.original_title && m.original_title !== m.name ? esc(m.original_title) + ' · ' : ''}<span class="m-only">${m.year || ''} · ${m.has_bilingual ? '已就绪' : '待制备'} · </span>${esc(baseName(m.path))}</div>
           </div>
-        `).join('');
-      } catch (e) {
-        document.getElementById('fetchModalContent').innerHTML = '<div class="text-center text-red-400 py-6">检索出错: ' + e.message + '</div>';
-      }
-    }
+          <div class="c-year muted">${m.year || '–'}</div>
+          <div class="c-audio row-flex">${audio}<span class="faint" style="font-size:12px">${subs ? subs + ' 条字幕' : '无字幕信息'}</span></div>
+          <div class="c-status">${status}</div>
+          <div class="mactions">
+            <button class="btn sm" data-action="openMovie" data-id="${esc(m.id)}" data-focus="online" title="检索在线字幕">${icon('search')}<span class="t">找字幕</span></button>
+            <button class="btn sm ${m.has_bilingual ? '' : 'primary'}" data-action="openMovie" data-id="${esc(m.id)}" data-focus="build" title="制作双语字幕">${icon('wand')}<span class="t">制作</span></button>
+          </div>
+        </div>`;
+      }).join('');
+  }
 
-    async function refreshMovie(id) {
-      const res = await fetch('/api/refresh?id=' + id);
-      if (res.ok) {
-        alert('媒体服务已完成该条目外部字幕感知刷新！');
-      } else {
-        alert('刷新失败: ' + await res.text());
-      }
-    }
+  const listHTML = `${body}${list.length ? pagerHTML(list.length, pages) : ''}`;
+  // Typing in the search box only swaps the list, so the input (and any IME
+  // composition in progress) is left untouched.
+  if (listOnly && $('#movieList')) { $('#movieList').innerHTML = listHTML; return; }
 
-    window.onload = fetchConfig;
-  </script>
+  const q = document.activeElement?.id === 'q' ? $('#q') : null;
+  const sel = q && [q.selectionStart, q.selectionEnd];
+  root.innerHTML = `
+    <div class="card">
+      <div class="toolbar">
+        <select class="select" data-bind="lang" title="按原声语种筛选">${langOpts}</select>
+        <div class="seg" role="tablist">
+          ${[['all', '全部'], ['missing', '待制备'], ['ready', '已就绪']].map(([k, n]) => `<button class="${f.status === k ? 'on' : ''}" data-action="setStatus" data-v="${k}">${n}<span class="n">${counts[k]}</span></button>`).join('')}
+        </div>
+        <div class="search">${icon('search')}<input class="input" id="q" data-bind="q" placeholder="搜索片名 / 原名 / 年份" value="${esc(f.q)}"><kbd>/</kbd></div>
+        <div class="spacer"></div>
+        <select class="select" data-bind="sort" title="排序">
+          ${[['name', '按片名'], ['added', '最近入库'], ['year_desc', '年份 新→旧'], ['year_asc', '年份 旧→新'], ['missing_first', '待制备优先']].map(([v, n]) => `<option value="${v}" ${f.sort === v ? 'selected' : ''}>${n}</option>`).join('')}
+        </select>
+        <button class="btn" data-action="reload" ${S.lib.loading ? 'disabled' : ''} title="重新读取媒体库">${icon('refresh', S.lib.loading ? 'spin' : '')}刷新</button>
+      </div>
+      <div class="sub-toolbar">
+        <span>${icon('server')} ${esc((S.config.server.type || '').toUpperCase())} · ${esc(S.config.server.host)}</span>
+        ${S.lib.cachedAt ? `<span class="faint">· 列表更新于 ${fmtAgo(S.lib.cachedAt)}</span>` : ''}
+        ${S.lib.loading ? `<span class="faint">· 正在读取媒体库…</span>` : ''}
+        <span class="spacer"></span>
+        ${f.lang ? `<span class="faint hint-wide">未探测音轨的影片按出品国家推断语种（标记为 “?”）</span>` : ''}
+      </div>
+    </div>
+    <div class="card list" id="movieList">${listHTML}</div>`;
+  if (sel) { const n = $('#q'); n.focus(); n.setSelectionRange(...sel); }
+}
+
+function posterHTML(m, cls = '') {
+  if (!m.has_poster) return `<div class="poster ph ${cls}">${esc((m.name || '?').slice(0, 1))}</div>`;
+  return `<img class="poster ${cls}" loading="lazy" alt="" src="/api/movies/${encodeURIComponent(m.id)}/poster" onerror="this.outerHTML='<div class=&quot;poster ph ${cls}&quot;>${esc(esc((m.name || '?').slice(0, 1)))}</div>'">`;
+}
+
+function pagerHTML(total, pages) {
+  const f = S.filter, p = f.page;
+  const want = new Set([1, pages, p - 1, p, p + 1]);
+  if (p <= 3) [2, 3, 4].forEach(n => want.add(n));
+  if (p >= pages - 2) [pages - 1, pages - 2, pages - 3].forEach(n => want.add(n));
+  const uniq = [];
+  [...want].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b).forEach((n, i, arr) => {
+    if (i && n - arr[i - 1] > 1) uniq.push('…');
+    uniq.push(n);
+  });
+  const start = (p - 1) * f.size + 1, end = Math.min(total, p * f.size);
+  return `<div class="pager">
+    <span>第 ${start}–${end} 部，共 ${total} 部</span>
+    <select class="select" data-bind="size" style="height:28px">${[20, 50, 100, 200].map(n => `<option value="${n}" ${f.size === n ? 'selected' : ''}>每页 ${n}</option>`).join('')}</select>
+    <span class="spacer"></span>
+    <div class="pages">
+      <button data-action="page" data-p="1" ${p === 1 ? 'disabled' : ''} title="首页">${icon('first')}</button>
+      <button data-action="page" data-p="${p - 1}" ${p === 1 ? 'disabled' : ''} title="上一页 (←)">${icon('left')}</button>
+      ${uniq.map(n => n === '…' ? '<span class="gap">…</span>' : `<button class="${n === p ? 'on' : ''}" data-action="page" data-p="${n}">${n}</button>`).join('')}
+      <button data-action="page" data-p="${p + 1}" ${p === pages ? 'disabled' : ''} title="下一页 (→)">${icon('right')}</button>
+      <button data-action="page" data-p="${pages}" ${p === pages ? 'disabled' : ''} title="末页">${icon('last')}</button>
+    </div>
+    ${pages > 7 ? `<span>跳至 <input class="input jump" data-bind="jump" inputmode="numeric" placeholder="${p}"> 页</span>` : ''}
+  </div>`;
+}
+
+function gotoPage(n) {
+  const pages = Math.max(1, Math.ceil(filteredMovies().length / S.filter.size));
+  n = Math.min(pages, Math.max(1, n | 0));
+  if (n === S.filter.page) return;
+  S.filter.page = n;
+  renderLibrary(true);
+  const top = $('#movieList').getBoundingClientRect().top + scrollY - 70;
+  if (scrollY > top) scrollTo({ top, behavior: 'smooth' });
+}
+
+/* ================= movie drawer ================= */
+async function openMovie(id, focus) {
+  const m = S.lib.movies.find(x => x.id === id);
+  if (!m) return;
+  S.drawer = { id, movie: m, detail: null, probe: null, probing: false, probeError: null, online: null, focus };
+  S.drawer.builder = newBuilder('library');
+  showDrawer(true);
+  renderDrawer();
+  $$('.mrow').forEach(r => r.classList.toggle('sel', r.dataset.id === id));
+  try {
+    S.drawer.detail = await api('/api/movies/' + encodeURIComponent(id));
+  } catch (e) {
+    S.drawer.detailError = e.message;
+  }
+  if (S.drawer?.id !== id) return;
+  autoPick(S.drawer.builder, drawerOptions());
+  renderDrawer();
+  if (focus === 'online') searchOnline(S.drawer, m.original_title || m.name);
+  if (focus === 'build') setTimeout(() => $('#builderSec')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+}
+
+function showDrawer(on) {
+  $('#drawer').classList.toggle('on', on);
+  $('#drawer').setAttribute('aria-hidden', String(!on));
+  $('#scrim').classList.toggle('on', on);
+  if (!on) {
+    S.drawer = null;
+    $$('.mrow.sel').forEach(r => r.classList.remove('sel'));
+  }
+}
+
+function drawerOptions() {
+  const d = S.drawer, opts = [];
+  const item = d.detail?.item || d.movie;
+  for (const s of item.streams || []) {
+    if (s.type !== 'Subtitle') continue;
+    const bil = /zh-|双语|bilingual/i.test((s.display_title || '') + (s.path || ''));
+    const bitmap = isBitmapSub(s.codec + ' ' + (s.display_title || ''));
+    opts.push({ key: 'srv:' + s.index, group: '媒体库字幕轨', lang: normLang(s.language), bilingual: bil, disabled: bitmap,
+      label: `${s.display_title || langName(s.language)} ${s.is_external ? '· 外挂' : '· 内嵌'}${bil ? ' · 已是双语' : ''}${bitmap ? ' · 图形字幕不可用' : ''}`,
+      source: { kind: 'server', item_id: item.id, stream_index: s.index, label: s.display_title || ('字幕轨 #' + s.index) } });
+  }
+  const local = d.detail?.local;
+  for (const sc of local?.sidecars || []) {
+    if (sc.language === 'bilingual') continue;
+    opts.push({ key: 'file:' + sc.path, group: '同目录外挂字幕', lang: sc.language, label: sc.name, source: { kind: 'file', path: sc.path, label: sc.name } });
+  }
+  if (d.probe) pushProbeOptions(opts, d.probe, local?.video_remote);
+  pushCommonOptions(opts, d.builder, d.online);
+  return opts;
+}
+
+const isBitmapSub = c => /pgs|dvd_?sub|dvb_?sub|vobsub|hdmv/i.test(c || '');
+
+function pushProbeOptions(opts, probe, remote) {
+  for (const t of probe.tracks || []) {
+    if (t.type !== 'Subtitle') continue;
+    opts.push({ key: 'trk:' + t.index, group: '内嵌字幕轨 (ffprobe)', lang: t.language, disabled: !t.text_base,
+      label: `#${t.index} ${t.title || langName(t.language)} · ${t.codec}${t.text_base ? '' : ' · 图形字幕不可用'}${remote ? ' · 需读取整个远程文件' : ''}`,
+      source: { kind: 'track', path: probe.path, track: t.index, label: `${baseName(probe.path)} #${t.index}` } });
+  }
+}
+
+function pushCommonOptions(opts, b, online) {
+  for (const r of b.picked || []) {
+    opts.push({ key: 'url:' + r.download_url, group: '在线字幕', lang: normLang(r.language), label: `${provName(r.provider)} · ${r.filename}`, source: { kind: 'url', url: r.download_url, label: `${provName(r.provider)}: ${r.filename}` } });
+  }
+  for (const u of b.uploads) {
+    opts.push({ key: 'file:' + u.path, group: '已上传 / 手动指定', lang: u.language, label: u.name, source: { kind: 'file', path: u.path, label: u.name } });
+  }
+}
+
+function renderDrawer() {
+  const d = S.drawer;
+  if (!d) return;
+  const m = d.detail?.item || d.movie;
+  const li = d.detail?.local;
+  const t = S.config.language?.target_audio;
+  const target = normLang(m.target_audio) || normLang(S.filter.lang) || normLang(t);
+  const audio = (m.streams || []).filter(s => s.type === 'Audio');
+  const subs = (m.streams || []).filter(s => s.type === 'Subtitle');
+
+  let fileSec = '<div class="faint">读取中…</div>';
+  if (d.detailError) fileSec = `<div class="note err">${icon('alert')}${esc(d.detailError)}</div>`;
+  else if (li) {
+    fileSec = `<div class="kv">
+      <div>服务器路径</div><div class="path">${esc(m.path)} <button class="btn sm icon ghost" data-action="copy" data-text="${esc(m.path)}" title="复制">${icon('copy')}</button></div>
+      ${li.mapped ? `<div>本机路径</div><div class="path">${esc(li.local_path)}</div>` : ''}
+      <div>本机访问</div><div>${li.local_exists ? `<span class="chip ok">${icon('check')}可访问</span>` : li.can_write ? '<span class="chip accent">目录可写</span>' : '<span class="chip">不可访问</span>'}
+        ${li.is_strm ? '<span class="chip">STRM</span>' : ''} ${m.container ? `<span class="chip">${esc(m.container.toUpperCase())}</span>` : ''}</div>
+      <div>媒体直链</div><div>${li.video_source ? (li.video_remote ? '<span class="chip accent">已获取 HTTP 直链</span>' : '<span class="chip ok">本地文件</span>') : '<span class="chip">无</span>'}</div>
+    </div>
+    ${!li.can_write ? `<div class="note">${icon('info')}<div>影片目录在本机不可访问，制作的字幕只能下载后手动放入。<a href="#" data-action="openSettings" data-tab="paths">配置路径映射</a>后可直接写回影片目录并通知媒体库刷新。</div></div>` : ''}
+    ${li.output_exists ? `<div class="note ok">${icon('check')}<div>已存在双语字幕 <span class="mono">${esc(baseName(li.output_path))}</span></div></div>` : ''}`;
+  }
+
+  const trackRow = (kind, lang, title, extra = '', dis = false) => `<div class="track ${dis ? 'dis' : ''}"><span class="idx">${kind}</span><span class="chip lang">${esc(normLang(lang) || '—')}</span><span class="grow truncate">${esc(title)}</span>${extra}</div>`;
+  let trackSec = '';
+  if (audio.length || subs.length) {
+    trackSec = `<div class="tracks">${audio.map(s => trackRow('音', s.language, s.display_title || s.codec)).join('')}${subs.map(s => trackRow('字', s.language, s.display_title || s.codec, (isBitmapSub(s.codec + ' ' + s.display_title) ? '<span class="chip">图形</span>' : '') + (s.is_external ? '<span class="chip">外挂</span>' : '<span class="chip">内嵌</span>'), isBitmapSub(s.codec + ' ' + s.display_title))).join('')}</div>`;
+  } else {
+    trackSec = `<div class="faint" style="font-size:13px">媒体服务器没有这部影片的轨道信息${li?.is_strm ? '（STRM 文件通常不会被探测）' : ''}。</div>`;
+  }
+  const canProbe = li?.video_source;
+  trackSec += `<div class="row-flex" style="margin-top:10px">
+      <button class="btn sm" data-action="probeMovie" ${!canProbe || d.probing ? 'disabled' : ''}>${icon(d.probing ? 'loader' : 'film', d.probing ? 'spin' : '')}${d.probe ? '重新探测' : '用 ffprobe 读取文件轨道'}</button>
+      <span class="faint" style="font-size:12px">${canProbe ? (li.video_remote ? '只读取文件头，不会下载整片' : '') : '需要本机路径映射或服务器直链'}</span></div>`;
+  if (d.probeError) trackSec += `<div class="note err">${icon('alert')}${esc(d.probeError)}</div>`;
+  if (d.probe) {
+    const pt = d.probe.tracks.filter(x => x.type !== 'Video');
+    trackSec += `<div class="tracks" style="margin-top:10px">${pt.map(x => trackRow('#' + x.index, x.language, (x.title || langName(x.language)) + ' · ' + x.codec + (x.type === 'Audio' && x.channels ? ` · ${x.channels}ch` : ''),
+      x.type === 'Subtitle' ? (x.text_base ? '<span class="chip ok">可提取</span>' : '<span class="chip">图形</span>') : '<span class="chip">音轨</span>', x.type === 'Subtitle' && !x.text_base)).join('') || '<div class="track faint">没有音轨或字幕轨</div>'}</div>`;
+  }
+
+  $('#drawer').innerHTML = `
+    <div class="dhead">
+      ${posterHTML(m)}
+      <div class="grow">
+        <h2>${esc(m.name)}</h2>
+        ${m.original_title && m.original_title !== m.name ? `<div class="muted">${esc(m.original_title)}</div>` : ''}
+        <div class="row-flex faint" style="margin-top:6px;flex-wrap:wrap;font-size:12.5px">
+          ${m.year ? `<span>${m.year}</span>` : ''}${m.runtime_sec ? `<span>· ${fmtRuntime(m.runtime_sec)}</span>` : ''}
+          ${(m.countries || []).length ? `<span>· ${esc(m.countries.slice(0, 2).join(' / '))}</span>` : ''}
+        </div>
+        <div class="row-flex" style="margin-top:8px;flex-wrap:wrap">
+          ${target ? `<span class="chip accent">${langName(target)}${m.matched_by === 'country' ? '（推断）' : ''}</span>` : ''}
+          ${m.has_bilingual ? `<span class="chip ok">${icon('check')}双语已就绪</span>` : '<span class="chip warn">待制备</span>'}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn icon ghost" data-action="closeOverlay" title="关闭 (Esc)">${icon('x')}</button>
+        <button class="btn icon ghost" data-action="refreshItem" title="通知媒体库刷新此条目">${icon('refresh')}</button>
+      </div>
+    </div>
+    <div class="dbody">
+      <div class="sec"><h4>${icon('folder')}文件</h4>${fileSec}</div>
+      <div class="sec"><h4>${icon('film')}轨道</h4>${trackSec}</div>
+      <div class="sec" id="onlineSec"><h4>${icon('globe')}在线字幕 <span class="n">${esc(enabledProviders().map(provName).join(' · '))}</span></h4>${onlineHTML(d, m.original_title || m.name, target, [m.original_title, m.name, m.original_title && m.year ? m.original_title + ' ' + m.year : ''])}</div>
+      <div class="sec" id="builderSec"><h4>${icon('wand')}制作双语字幕</h4>${builderHTML(d.builder, drawerOptions(), {
+        target, videoSource: li?.video_source, videoRemote: li?.video_remote, canWrite: li?.can_write, outputPath: li?.output_path, outputExists: li?.output_exists, library: true })}</div>
+    </div>`;
+}
+
+async function probeMovie() {
+  const d = S.drawer; if (!d) return;
+  d.probing = true; d.probeError = null; renderDrawer();
+  try {
+    d.probe = await api('/api/probe?item_id=' + encodeURIComponent(d.id));
+    autoPick(d.builder, drawerOptions());
+  } catch (e) { d.probeError = e.message; }
+  d.probing = false;
+  if (S.drawer === d) renderDrawer();
+}
+
+/* ================= online search (shared) ================= */
+const PROVIDERS = { assrt: 'ASSRT', opensubtitles: 'OpenSubtitles', subtitlecat: 'SubtitleCat' };
+const provName = p => PROVIDERS[p] || p || '';
+function enabledProviders() {
+  const p = S.config.providers || {};
+  return [p.enable_assrt && S.config.assrt_token_set && 'assrt', p.enable_opensubtitles && S.config.opensubtitles_key_set && 'opensubtitles', p.enable_subtitlecat && 'subtitlecat'].filter(Boolean);
+}
+const fetchDownloadURL = r => '/api/fetch/download?url=' + encodeURIComponent(r.download_url) + '&name=' + encodeURIComponent(r.filename || 'subtitle');
+
+function onlineHTML(ctx, defaultQuery, target, alts = []) {
+  const o = ctx.online;
+  const q = o?.query ?? defaultQuery ?? '';
+  const f = o?.langFilter || '', pf = o?.provFilter || '';
+  let res = '';
+  if (o?.loading) res = `<div class="faint row-flex">${icon('loader', 'spin')}正在检索…</div>`;
+  else if (o?.error || (o?.results && !o.results.length)) {
+    const others = [...new Set(alts.filter(a => a && a.trim() && a.trim() !== o.query))];
+    res = `<div class="note ${o.error ? 'err' : ''}">${icon(o.error ? 'alert' : 'info')}<div>${o.error ? esc(o.error) : `没有找到「${esc(o.query)}」的字幕。`}
+      ${others.length ? `<div class="row-flex" style="flex-wrap:wrap;margin-top:6px">换个名称试试：${others.map(a => `<button class="btn sm" data-action="searchAlt" data-q="${esc(a)}">${esc(a)}</button>`).join('')}</div>` : '<div style="margin-top:4px">试试原名、去掉副标题，或加上年份。</div>'}</div></div>
+      ${!enabledProviders().includes('assrt') ? `<div class="faint" style="font-size:12px;margin-top:8px">在 <a href="#" data-action="openSettings" data-tab="providers">设置 · 字幕源</a> 中填写 ASSRT token 可检索字幕组中文字幕。</div>` : ''}`;
+  }
+  else if (o?.results) {
+    const byProv = o.results.filter(r => !pf || r.provider === pf);
+    const list = byProv.filter(r => !f || normLang(r.language) === f);
+    const langs = [...new Set(byProv.map(r => normLang(r.language)))];
+    const provs = [...new Set(o.results.map(r => r.provider))];
+    const errs = Object.entries(o.errors || {});
+    res = `<div class="row-flex" style="flex-wrap:wrap;margin-bottom:8px">
+        ${provs.length > 1 ? `<div class="seg">${['', ...provs].map(p =>
+          `<button class="${pf === p ? 'on' : ''}" data-action="onlineProv" data-v="${p}">${p ? provName(p) : '全部来源'}<span class="n">${p ? o.results.filter(r => r.provider === p).length : o.results.length}</span></button>`).join('')}</div>` : ''}
+        <div class="seg wrap">${['', ...langs.sort((a, b) => (b === target) - (a === target) || (b === 'zh') - (a === 'zh'))].slice(0, 7).map(l =>
+          `<button class="${f === l ? 'on' : ''}" data-action="onlineLang" data-v="${l}">${l ? langName(l) : '全部'}<span class="n">${l ? byProv.filter(r => normLang(r.language) === l).length : byProv.length}</span></button>`).join('')}</div></div>
+      ${errs.map(([p, e]) => `<div class="note warn" style="margin:0 0 8px">${icon('alert')}${esc(provName(p))}：${esc(e)}</div>`).join('')}
+      <div class="results">${list.map(r => `<div class="result">
+          ${provs.length > 1 ? `<span class="chip prov" title="字幕来源">${esc(provName(r.provider))}</span>` : ''}
+          <span class="chip lang">${esc(r.language)}</span>
+          <span class="name truncate" title="${esc(r.filename + (r.info ? '\n' + r.info : ''))}">${esc(r.filename)}${r.info ? `<span class="meta truncate">${esc(r.info)}</span>` : ''}</span>
+          <button class="btn sm" data-action="useOnline" data-i="${o.results.indexOf(r)}" data-slot="primary" title="用作上方原语字幕">原语</button>
+          <button class="btn sm" data-action="useOnline" data-i="${o.results.indexOf(r)}" data-slot="secondary" title="用作下方中文字幕">中文</button>
+          <a class="btn sm icon ghost" href="${esc(fetchDownloadURL(r))}" title="下载字幕文件">${icon('download')}</a>
+        </div>`).join('') || '<div class="faint">没有符合筛选的结果</div>'}</div>
+      ${list.some(r => r.provider === 'subtitlecat') ? '<div class="faint" style="font-size:12px;margin-top:8px">SubtitleCat 的多语种字幕多为机器翻译，原语字幕请优先使用影片自带轨道。</div>' : ''}
+      ${!enabledProviders().includes('assrt') ? `<div class="faint" style="font-size:12px;margin-top:4px">在 <a href="#" data-action="openSettings" data-tab="providers">设置 · 字幕源</a> 中填写 ASSRT token 可检索字幕组中文字幕。</div>` : ''}`;
+  }
+  return `<div class="row-flex" style="margin-bottom:10px">
+      <div class="search grow">${icon('search')}<input class="input" data-bind="onlineQuery" value="${esc(q)}" placeholder="片名（原名搜索更准）"></div>
+      <button class="btn" data-action="searchOnline" ${o?.loading ? 'disabled' : ''}>检索</button>
+    </div>${res}`;
+}
+
+function ctxFor(el) { return el.closest('#drawer') ? S.drawer : S.local; }
+function rerender(ctx) { ctx === S.drawer ? renderDrawer() : renderLocal(); }
+function optionsFor(ctx) { return ctx === S.drawer ? drawerOptions() : localOptions(); }
+
+async function searchOnline(ctx, query) {
+  if (!ctx) return;
+  query = (query || '').trim();
+  if (!query) { toast('请输入片名', 'err'); return; }
+  ctx.online = { query, loading: true, langFilter: ctx.online?.langFilter || '', provFilter: ctx.online?.provFilter || '' };
+  rerender(ctx);
+  try {
+    const data = await api('/api/fetch?query=' + encodeURIComponent(query));
+    ctx.online.results = data.sources || [];
+    ctx.online.errors = data.errors || {};
+    if (ctx.online.provFilter && !ctx.online.results.some(r => r.provider === ctx.online.provFilter)) ctx.online.provFilter = '';
+    if (ctx.online.langFilter && !ctx.online.results.some(r => normLang(r.language) === ctx.online.langFilter)) ctx.online.langFilter = '';
+    if (data.error && !ctx.online.results.length) ctx.online.error = '未找到结果：' + data.error;
+  } catch (e) { ctx.online.error = e.message; }
+  ctx.online.loading = false;
+  rerender(ctx);
+}
+
+/* ================= builder (shared) ================= */
+function newBuilder(kind) {
+  return { kind, primary: null, secondary: null, sync: 'primary', syncTouched: false, output: 'beside', refresh: true, uploads: [], picked: [], manual: { primary: false, secondary: false }, job: null, submitting: false };
+}
+
+function autoPick(b, opts) {
+  const target = currentTarget();
+  const valid = k => opts.some(o => o.key === k && !o.disabled);
+  if (!b.primary || !valid(b.primary)) b.primary = (opts.find(o => !o.disabled && !o.bilingual && o.lang && o.lang === target && o.source.kind !== 'url') || {}).key || null;
+  if (!b.secondary || !valid(b.secondary)) b.secondary = (opts.find(o => !o.disabled && !o.bilingual && o.lang === 'zh' && o.source.kind !== 'url') || {}).key || null;
+  if (!b.syncTouched) {
+    const p = opts.find(o => o.key === b.primary), s = opts.find(o => o.key === b.secondary);
+    b.sync = p && s && p.source.kind === 'track' && s.source.kind === 'track' ? 'none' : 'primary';
+  }
+}
+
+function currentTarget() {
+  if (S.drawer) { const m = S.drawer.detail?.item || S.drawer.movie; const l = normLang(m.target_audio) || normLang(S.filter.lang); if (l) return l; }
+  return normLang(S.local.builder?.lang) || normLang(S.config.language?.target_audio) || 'ja';
+}
+
+function slotHTML(b, slot, opts, title, langHint) {
+  const sel = b[slot];
+  const groups = {};
+  opts.forEach(o => (groups[o.group] = groups[o.group] || []).push(o));
+  const options = Object.entries(groups).map(([g, list]) => `<optgroup label="${esc(g)}">${list.map(o =>
+    `<option value="${esc(o.key)}" ${o.key === sel ? 'selected' : ''} ${o.disabled ? 'disabled' : ''}>${o.lang ? '[' + esc(o.lang) + '] ' : ''}${esc(o.label)}</option>`).join('')}</optgroup>`).join('');
+  return `<div class="slot">
+    <div class="lbl"><b>${title}</b><span>${langHint}</span><span class="spacer"></span>
+      <button class="btn sm ghost" data-action="manualPath" data-slot="${slot}" title="输入本机字幕路径">${icon('folder')}路径</button>
+      <button class="btn sm ghost" data-action="upload" data-slot="${slot}" title="上传字幕文件">${icon('upload')}上传</button></div>
+    <select class="select" data-bind="slot" data-slot="${slot}">
+      <option value="" ${!sel ? 'selected' : ''}>— 选择字幕来源 —</option>${options}
+    </select>
+    ${b.manual[slot] ? `<div class="inline"><input class="input mono" data-manual="${slot}" placeholder="/path/to/subtitle.srt"><button class="btn sm" data-action="applyManual" data-slot="${slot}">使用</button></div>` : ''}
+  </div>`;
+}
+
+function builderHTML(b, opts, env) {
+  const target = env.target || 'ja';
+  const optNone = !opts.length;
+  const hasVideo = !!env.videoSource;
+  const p = opts.find(o => o.key === b.primary), s = opts.find(o => o.key === b.secondary);
+  if (!env.canWrite && b.output === 'beside') b.output = 'download';
+  if (env.canWrite && b.output === 'download' && !b.outputTouched) b.output = 'beside';
+  const syncOpts = [
+    ['primary', '以原语字幕为基准', '用 ffsubsync 把中文字幕对齐到原语字幕（最常用）', false],
+    ['video', '以视频音轨为基准', hasVideo ? (env.videoRemote ? '两条字幕都对齐到视频声音；远程直链需要读取整个文件，较慢' : '两条字幕都对齐到视频声音，适合两条字幕都不同步的情况') : '需要可访问的视频文件', !hasVideo],
+    ['none', '不对轴', '两条字幕已同步，例如来自同一个 MKV 的内嵌轨道', false],
+  ];
+  const outOpts = [
+    ['beside', env.outLabel || '写入影片目录', env.canWrite ? (env.outputPath ? baseName(env.outputPath) + (env.outputExists ? '（将覆盖已有文件）' : '') : '与视频同名') : (env.noWrite || '影片目录在本机不可访问'), !env.canWrite],
+    ['download', '仅生成，下载到本机', '生成后在任务里下载，自行放入影片目录', false],
+  ];
+  const job = b.job;
+  return `<div class="builder">
+    ${optNone ? `<div class="note">${icon('info')}<div>还没有可用的字幕来源。可以${env.library ? '探测文件轨道、' : ''}检索在线字幕，或通过「路径 / 上传」指定字幕文件。</div></div>` : ''}
+    ${slotHTML(b, 'primary', opts, '上 · 原语字幕', langName(target) + '，同时作为对轴基准')}
+    ${slotHTML(b, 'secondary', opts, '下 · 中文字幕', '显示在原语下方')}
+    ${p && p.lang && !['bilingual', target].includes(p.lang) ? `<div class="note warn">${icon('alert')}<div>上方选的是${esc(langName(p.lang))}字幕，与原声${esc(langName(target))}不同；输出文件将按${esc(langName(p.lang))}命名。</div></div>` : ''}
+    ${s && s.lang && s.lang !== 'zh' ? `<div class="note warn">${icon('alert')}<div>下方选的是${esc(langName(s.lang))}字幕，不是中文。</div></div>` : ''}
+    <div class="field"><span>对轴方式</span><div class="opts">${syncOpts.map(([v, t, d, dis]) => `<label class="opt ${b.sync === v ? 'on' : ''} ${dis ? 'dis' : ''}"><input type="radio" name="sync-${b.kind}" data-bind="sync" value="${v}" ${b.sync === v ? 'checked' : ''} ${dis ? 'disabled' : ''}><div><div class="t">${t}</div><div class="d">${esc(d)}</div></div></label>`).join('')}</div></div>
+    <div class="field"><span>输出</span><div class="opts">${outOpts.map(([v, t, d, dis]) => `<label class="opt ${b.output === v ? 'on' : ''} ${dis ? 'dis' : ''}"><input type="radio" name="out-${b.kind}" data-bind="output" value="${v}" ${b.output === v ? 'checked' : ''} ${dis ? 'disabled' : ''}><div><div class="t">${t}</div><div class="d ${v === 'beside' ? 'mono' : ''}">${esc(d)}</div></div></label>`).join('')}</div></div>
+    ${env.library && b.output === 'beside' ? `<label class="check"><input type="checkbox" data-bind="refresh" ${b.refresh ? 'checked' : ''}>完成后通知媒体库刷新该条目</label>` : ''}
+    ${!S.status.tools.ffsubsync.ok && b.sync !== 'none' ? `<div class="note warn">${icon('alert')}<div>未检测到 ffsubsync，对轴会失败。运行 <span class="mono">scripts/install.sh</span> 安装，或在设置中指定路径；两条字幕已同步时可选「不对轴」。</div></div>` : ''}
+    <div class="row-flex">
+      <button class="btn primary" data-action="submitJob" ${!p || !s || b.submitting || (job && ['queued', 'running'].includes(job.status)) ? 'disabled' : ''}>${icon('wand')}开始制作</button>
+      ${p && s && p.key === s.key ? '<span class="faint" style="font-size:12px">上下选择了同一个来源</span>' : ''}
+    </div>
+    ${job ? jobCardHTML(job) : ''}
+  </div>`;
+}
+
+function jobCardHTML(j) {
+  const pct = j.status === 'done' ? 100 : j.steps ? Math.round(((j.step - (j.status === 'running' ? 0.5 : 0)) / j.steps) * 100) : 5;
+  const cls = j.status === 'done' ? 'ok' : ['failed', 'cancelled'].includes(j.status) ? 'err' : 'run';
+  const title = { queued: '排队中', running: j.step_title || '处理中', done: '已完成', failed: '失败', cancelled: '已取消' }[j.status];
+  return `<div class="job" data-job="${esc(j.id)}">
+    <div class="row-flex"><b style="font-size:13px">${esc(title)}</b>${j.status === 'running' ? `<span class="faint" style="font-size:12px">${j.step}/${j.steps}</span>` : ''}<span class="spacer"></span>
+      ${['queued', 'running'].includes(j.status) ? `<button class="btn sm ghost danger" data-action="cancelJob" data-id="${esc(j.id)}">${icon('stop')}取消</button>` : ''}
+      ${j.status === 'done' ? `<a class="btn sm" href="/api/jobs/${encodeURIComponent(j.id)}/download">${icon('download')}下载 ASS</a>` : ''}</div>
+    <div class="bar ${cls}"><div style="width:${Math.max(4, Math.min(100, pct))}%"></div></div>
+    ${j.error ? `<div class="note err" style="margin:0">${icon('alert')}<div>${esc(j.error)}</div></div>` : ''}
+    ${j.status === 'done' ? `<div class="note ok" style="margin:0">${icon('check')}<div>${j.temp_output ? `已生成 <span class="mono">${esc(baseName(j.output))}</span>，点「下载 ASS」保存后放到影片旁` : `已写入 <span class="mono">${esc(j.output)}</span>${j.refreshed ? '，已通知媒体库刷新' : ''}`}</div></div>` : ''}
+    ${(j.logs || []).length ? `<details ${j.status === 'failed' ? 'open' : ''}><summary class="faint" style="font-size:12px;cursor:pointer">日志</summary><div class="logs">${esc(j.logs.join('\n'))}</div></details>` : ''}
+  </div>`;
+}
+
+async function submitJob(ctx, overwrite = false) {
+  const b = ctx.builder;
+  const opts = optionsFor(ctx);
+  const p = opts.find(o => o.key === b.primary), s = opts.find(o => o.key === b.secondary);
+  if (!p || !s) return;
+  const isLib = ctx === S.drawer;
+  const m = isLib ? (ctx.detail?.item || ctx.movie) : null;
+  const li = isLib ? ctx.detail?.local : null;
+  const video = isLib ? li?.video_source : ctx.selected;
+  const payload = {
+    title: isLib ? (m.original_title && m.original_title !== m.name ? `${m.name} (${m.original_title})` : m.name) : (ctx.selected ? baseName(ctx.selected).replace(/\.[^.]+$/, '') : 'bilingual'),
+    item_id: isLib ? m.id : '', lang: (p.lang && p.lang !== 'bilingual' ? p.lang : '') || currentTarget(),
+    primary: p.source, secondary: s.source, sync_mode: b.sync, video_path: b.sync === 'video' ? video : '',
+    output: { mode: b.output === 'beside' ? (isLib ? 'beside' : 'custom') : 'download', path: !isLib && b.output === 'beside' ? localOutputPath() : '' },
+    refresh: isLib && b.refresh, overwrite,
+  };
+  b.submitting = true; rerender(ctx);
+  try {
+    b.job = await api('/api/jobs', { json: payload });
+    pollJob(ctx, b.job.id);
+    refreshJobs();
+  } catch (e) {
+    if (e.status === 409) {
+      b.submitting = false;
+      if (await confirmDialog('目标文件已存在', `<div class="mono" style="word-break:break-all">${esc(e.data.exists)}</div><p class="muted">覆盖后原文件将被替换。</p>`, '覆盖')) return submitJob(ctx, true);
+      rerender(ctx); return;
+    }
+    toast(e.message, 'err', 6000);
+  }
+  b.submitting = false; rerender(ctx);
+}
+
+async function pollJob(ctx, id) {
+  const b = ctx.builder;
+  while (b.job && b.job.id === id) {
+    await new Promise(r => setTimeout(r, 900));
+    try { b.job = await api('/api/jobs/' + encodeURIComponent(id)); } catch { break; }
+    const open = ctx === S.drawer || (ctx === S.local && S.view === 'local');
+    if (open) patchJobCard(b.job);
+    if (!['queued', 'running'].includes(b.job.status)) {
+      refreshJobs();
+      if (b.job.status === 'done') onJobDone(ctx, b.job);
+      if (open) rerender(ctx);
+      break;
+    }
+  }
+}
+
+function patchJobCard(j) {
+  const el = $(`.job[data-job="${CSS.escape(j.id)}"]`);
+  if (!el) return;
+  const wasOpen = el.querySelector('details')?.open;
+  const logs = el.querySelector('.logs'); const atBottom = !logs || logs.scrollTop + logs.clientHeight >= logs.scrollHeight - 8;
+  el.outerHTML = jobCardHTML(j);
+  const nel = $(`.job[data-job="${CSS.escape(j.id)}"]`);
+  if (wasOpen && nel.querySelector('details')) nel.querySelector('details').open = true;
+  const nl = nel.querySelector('.logs'); if (nl && atBottom) nl.scrollTop = nl.scrollHeight;
+}
+
+async function onJobDone(ctx, job) {
+  toast('双语字幕已生成：' + baseName(job.output), 'ok', 5000);
+  if (ctx === S.drawer && ctx.builder.output === 'beside') {
+    const m = S.lib.movies.find(x => x.id === ctx.id);
+    if (m) { m.has_bilingual = true; renderLibrary(); }
+    try { ctx.detail = await api('/api/movies/' + encodeURIComponent(ctx.id)); if (S.drawer === ctx) renderDrawer(); } catch {}
+  }
+  if (ctx === S.local && S.local.data?.path) refreshLocalDir();
+}
+
+/* ================= local files ================= */
+async function openLocalPath(p) {
+  const L = S.local;
+  L.error = null;
+  try {
+    const data = await api('/api/fs?path=' + encodeURIComponent(p || ''));
+    if (data.is_file) {
+      await openLocalPath(data.parent);
+      return selectLocalVideo(data.path);
+    }
+    if (!data.path) { L.roots = data.roots || []; L.data = { path: '', entries: [] }; }
+    else { L.data = data; L.path = data.path; store.set('localPath', data.path); }
+  } catch (e) {
+    L.error = e.message;
+    if (!L.data) { try { const r = await api('/api/fs'); L.roots = r.roots || []; L.data = { path: '', entries: [] }; } catch {} }
+  }
+  if (!L.roots.length) { try { L.roots = (await api('/api/fs')).roots || []; } catch {} }
+  if (!L.builder) L.builder = newBuilder('local');
+  if (!L.selected) autoPick(L.builder, localOptions());
+  renderLocal();
+}
+
+async function refreshLocalDir() {
+  try { S.local.data = await api('/api/fs?path=' + encodeURIComponent(S.local.data.path)); } catch {}
+  if (S.local.selected) { try { S.local.sidecars = (await api('/api/fs?path=' + encodeURIComponent(S.local.selected))).sidecars || []; } catch {} }
+  if (S.view === 'local') renderLocal();
+}
+
+async function selectLocalVideo(path) {
+  const L = S.local;
+  L.selected = path; L.probe = null; L.probeError = null; L.probing = true; L.online = null;
+  const keep = L.builder?.uploads || [];
+  L.builder = newBuilder('local'); L.builder.uploads = keep; L.builder.output = 'beside';
+  renderLocal();
+  try {
+    const [probe, info] = await Promise.all([
+      api('/api/probe?path=' + encodeURIComponent(path)),
+      api('/api/fs?path=' + encodeURIComponent(path)),
+    ]);
+    if (L.selected !== path) return;
+    L.probe = probe; L.sidecars = info.sidecars || [];
+  } catch (e) { L.probeError = e.message; }
+  L.probing = false;
+  autoPick(L.builder, localOptions());
+  renderLocal();
+}
+
+function localOptions() {
+  const L = S.local, opts = [];
+  if (L.selected && L.probe) pushProbeOptions(opts, L.probe, false);
+  for (const sc of L.sidecars || []) {
+    if (sc.language === 'bilingual') continue;
+    opts.push({ key: 'file:' + sc.path, group: '同目录外挂字幕', lang: sc.language, label: sc.name, source: { kind: 'file', path: sc.path, label: sc.name } });
+  }
+  // Subtitle files of the open folder are handy when merging without a video.
+  if (!L.selected) for (const e of L.data?.entries || []) {
+    if (e.kind !== 'subtitle') continue;
+    const g = guessLangClient(e.name);
+    if (g === 'bilingual') continue;
+    opts.push({ key: 'file:' + e.path, group: '当前文件夹的字幕', lang: g, label: e.name, source: { kind: 'file', path: e.path, label: e.name } });
+  }
+  if (L.builder) pushCommonOptions(opts, L.builder, L.online);
+  const seen = new Set();
+  return opts.filter(o => !seen.has(o.key) && seen.add(o.key));
+}
+
+function guessLangClient(name) {
+  const parts = name.toLowerCase().replace(/\.[^.]+$/, '').split('.');
+  // "movie.ja.srt" → look at the suffixes; a bare "ja.srt" counts too.
+  for (let i = parts.length - 1; i >= (parts.length === 1 ? 0 : 1) && i >= parts.length - 3; i--) {
+    if (/[-&]/.test(parts[i]) && i > 0) return 'bilingual';
+    const l = normLang(parts[i]);
+    if (LANGS.some(x => x[0] === l)) return l;
+    if (['sc', 'tc', 'gb', 'big5', '简体', '繁体', '简中', '繁中'].includes(parts[i])) return 'zh';
+  }
+  return '';
+}
+
+function localOutputPath() {
+  const L = S.local, b = L.builder, n = S.config.language?.native_sub || 'zh';
+  const p = b && localOptions().find(o => o.key === b.primary);
+  const t = (p?.lang && p.lang !== 'bilingual' ? p.lang : '') || currentTarget();
+  let base = L.selected && L.selected.replace(/\.[^.\\/]+$/, '');
+  if (!base) {
+    // Merging two files without a video: save next to the original-language file
+    // in the open folder, named after it minus its own language suffix.
+    if (!L.data?.path || !p) return '';
+    let stem = baseName(p.source.path || p.label || '').replace(/(\.[a-z]{2,3}([-_][a-z]{2,4})?)?\.[^.]+$/i, '');
+    if (!stem || guessLangClient(stem + '.srt')) stem = 'bilingual'; // e.g. a file named just "ja.srt"
+    base = L.data.path + sepOf(L.data.path) + stem;
+  }
+  return base + `.${n}-${t}.ass`;
+}
+
+function renderLocal() {
+  const L = S.local, root = $('#view-local');
+  if (!L.data) { root.innerHTML = '<div class="card empty">加载中…</div>'; return; }
+  const path = L.data.path;
+  const sep = sepOf(path || '/');
+  const parts = path ? path.split(/[\\/]/).filter(Boolean) : [];
+  const isWin = /^[A-Za-z]:/.test(path);
+  const crumbs = path ? parts.map((p, i) => {
+    const full = isWin ? parts.slice(0, i + 1).join('\\') + (i === 0 ? '\\' : '') : '/' + parts.slice(0, i + 1).join('/');
+    return `<button data-action="openDir" data-path="${esc(full)}">${esc(p)}</button>`;
+  }).join('<span>/</span>') : '';
+
+  const entries = L.data.entries || [];
+  const entryHTML = entries.map(e => `<div class="entry ${e.kind} ${L.selected === e.path ? 'sel' : ''}" data-action="${e.kind === 'dir' ? 'openDir' : e.kind === 'video' ? 'pickVideo' : 'pickSub'}" data-path="${esc(e.path)}" title="${esc(e.name)}">
+      <span class="ico">${icon(e.kind === 'dir' ? 'folder' : e.kind === 'video' ? 'film' : 'sub')}</span><span class="truncate">${esc(e.name)}</span>${e.kind !== 'dir' ? `<span class="sz">${fmtSize(e.size)}</span>` : ''}</div>`).join('');
+
+  const browser = `<div class="card browser">
+    <div class="pathbar">
+      <input class="input mono" id="localPathInput" placeholder="输入文件夹或视频路径，如 ~/Movies" value="${esc(path)}">
+      <button class="btn" data-action="goPath">打开</button>
+    </div>
+    ${path ? `<div class="crumbs">${L.data.parent ? `<button data-action="openDir" data-path="${esc(L.data.parent)}" title="上一级">${icon('up')}</button><span>·</span>` : ''}${crumbs}</div>` : ''}
+    ${L.error ? `<div class="note err" style="margin:10px">${icon('alert')}${esc(L.error)}</div>` : ''}
+    ${!path ? `<div class="roots">${(L.roots || []).map(r => `<button class="btn sm" data-action="openDir" data-path="${esc(r.path)}">${icon('folder')}${esc(r.name)}</button>`).join('') || '<span class="faint">输入路径开始</span>'}</div>` : ''}
+    <div class="entries">${path ? (entryHTML || '<div class="faint" style="padding:16px;text-align:center">这个文件夹里没有视频或字幕</div>') : ''}</div>
+    ${path ? `<div class="sub-toolbar"><button class="btn sm ghost" data-action="openDir" data-path="">${icon('folder')}常用位置</button><span class="spacer"></span><span>${entries.filter(e => e.kind === 'video').length} 个视频 · ${entries.filter(e => e.kind === 'subtitle').length} 个字幕</span></div>` : ''}
+  </div>`;
+
+  let detail;
+  const opts = localOptions();
+  const target = currentTarget();
+  const langSel = `<select class="select" data-bind="localLang" style="height:28px" title="原语语种">${LANGS.filter(l => l[0] !== 'zh').map(([v, n]) => `<option value="${v}" ${target === v ? 'selected' : ''}>原语：${n}</option>`).join('')}</select>`;
+  if (L.selected) {
+    const p = L.probe;
+    const tr = p ? p.tracks.filter(x => x.type !== 'Video') : [];
+    detail = `<div class="card">
+      <div class="panel-pad" style="border-bottom:1px solid var(--border)">
+        <div class="row-flex" style="align-items:flex-start"><div class="grow"><h2>${esc(baseName(L.selected))}</h2>
+          <div class="faint mono" style="margin-top:4px;word-break:break-all">${esc(dirName(L.selected))}</div></div>
+          <button class="btn icon ghost" data-action="unpickVideo" title="取消选择">${icon('x')}</button></div>
+        <div class="row-flex" style="margin-top:10px;flex-wrap:wrap">${p ? `<span class="chip">${esc(p.format.split(',')[0].toUpperCase())}</span><span class="chip">${fmtRuntime(p.duration_sec)}</span><span class="chip">${fmtSize(p.size_bytes)}</span>` : ''}${langSel}</div>
+      </div>
+      <div class="panel-pad" style="padding-top:4px">
+        <div class="sec"><h4>${icon('film')}轨道 <span class="n">ffprobe</span></h4>
+          ${L.probing ? `<div class="faint row-flex">${icon('loader', 'spin')}读取中…</div>` : L.probeError ? `<div class="note err">${icon('alert')}${esc(L.probeError)}</div>` :
+            `<div class="tracks">${tr.map(x => `<div class="track ${x.type === 'Subtitle' && !x.text_base ? 'dis' : ''}"><span class="idx">#${x.index}</span><span class="chip lang">${esc(x.language || '—')}</span><span class="grow truncate">${esc(x.title || langName(x.language))} · ${esc(x.codec)}${x.channels ? ` · ${x.channels}ch` : ''}</span>${x.type === 'Subtitle' ? (x.text_base ? '<span class="chip ok">可提取</span>' : '<span class="chip">图形</span>') : '<span class="chip">音轨</span>'}${x.default ? '<span class="chip">默认</span>' : ''}</div>`).join('') || '<div class="track faint">没有音轨或字幕轨</div>'}
+            ${(L.sidecars || []).map(sc => `<div class="track"><span class="idx">外挂</span><span class="chip lang">${esc(sc.language || '—')}</span><span class="grow truncate">${esc(sc.name)}</span></div>`).join('')}</div>`}
+        </div>
+        <div class="sec"><h4>${icon('globe')}在线字幕 <span class="n">${esc(enabledProviders().map(provName).join(' · '))}</span></h4>${onlineHTML(L, cleanTitleFromFile(baseName(L.selected)), target)}</div>
+        <div class="sec"><h4>${icon('wand')}制作双语字幕</h4>${builderHTML(L.builder, opts, { target, videoSource: L.selected, videoRemote: false, canWrite: true, outputPath: localOutputPath(), outputExists: (L.data.entries || []).some(e => e.path === localOutputPath()) })}</div>
+      </div></div>`;
+  } else {
+    detail = `<div class="card">
+      <div class="panel-pad" style="border-bottom:1px solid var(--border)"><h2>直接处理本地视频</h2>
+        <p class="muted" style="margin:6px 0 0">在左侧选择 MKV / MP4 等视频文件，BabelSub 会读取内嵌的音轨和字幕轨，以及同名外挂字幕；也可以不选视频，直接合并两个字幕文件。</p></div>
+      <div class="panel-pad" style="padding-top:4px">
+        <div class="sec"><h4>${icon('sub')}合并两个字幕文件 <span class="spacer"></span>${langSel}</h4>
+        ${builderHTML(L.builder || (L.builder = newBuilder('local')), opts, { target, videoSource: '', canWrite: !!localOutputPath(), outputPath: localOutputPath(), outLabel: '保存到当前文件夹', noWrite: '先在左侧打开一个文件夹并选好原语字幕' })}</div>
+      </div></div>`;
+  }
+  root.innerHTML = `<div class="local">${browser}${detail}</div>`;
+}
+
+/* ================= jobs ================= */
+let jobsTimer = null;
+async function refreshJobs() {
+  try { S.jobs = (await api('/api/jobs')).jobs || []; } catch { return; }
+  const active = S.jobs.filter(j => ['queued', 'running'].includes(j.status)).length;
+  const badge = $('#jobBadge');
+  badge.textContent = active; badge.classList.toggle('hidden', !active);
+  if (S.view === 'jobs') renderJobs();
+  clearTimeout(jobsTimer);
+  if (active) jobsTimer = setTimeout(refreshJobs, 2000);
+}
+
+const openJobs = new Set();
+function renderJobs() {
+  const root = $('#view-jobs');
+  if (!S.jobs.length) {
+    root.innerHTML = `<div class="card empty">${icon('wand', 'big')}<h3>还没有任务</h3><p>在媒体库或本地文件里选择字幕来源后点「开始制作」，任务会在这里排队执行。任务记录仅保存在本次运行期间。</p></div>`;
+    return;
+  }
+  const st = { queued: ['', '排队中'], running: ['accent', '进行中'], done: ['ok', '已完成'], failed: ['err', '失败'], cancelled: ['', '已取消'] };
+  root.innerHTML = `<div class="card list" style="margin-top:0">
+    <div class="jrow head"><div>任务</div><div>状态</div><div class="c-time">时间</div><div></div></div>
+    ${S.jobs.map(j => `<div style="border-top:1px solid var(--border)">
+      <div class="jrow" style="border-top:0">
+        <div style="min-width:0"><div class="truncate" style="font-weight:560">${esc(j.title)}</div>
+          <div class="msub truncate">${esc(sourceLabel(j.request.primary))} + ${esc(sourceLabel(j.request.secondary))} · ${{ primary: '按原语对轴', video: '按音轨对轴', none: '不对轴' }[j.request.sync_mode || 'primary']}</div></div>
+        <div><span class="chip ${st[j.status][0]}">${j.status === 'running' ? icon('loader', 'spin') : ''}${st[j.status][1]}${j.status === 'running' ? ` ${j.step}/${j.steps}` : ''}</span></div>
+        <div class="c-time faint" style="font-size:12.5px">${fmtTime(j.created_at)}</div>
+        <div class="mactions">
+          ${['queued', 'running'].includes(j.status) ? `<button class="btn sm ghost danger" data-action="cancelJob" data-id="${esc(j.id)}">取消</button>` : ''}
+          ${j.status === 'done' ? `<a class="btn sm icon" href="/api/jobs/${encodeURIComponent(j.id)}/download" title="下载">${icon('download')}</a>` : ''}
+          <button class="btn sm ghost" data-action="toggleJob" data-id="${esc(j.id)}">${openJobs.has(j.id) ? '收起' : '详情'}</button>
+        </div>
+      </div>
+      ${openJobs.has(j.id) ? `<div class="jdetail" id="jd-${esc(j.id)}"><div class="faint">加载中…</div></div>` : ''}
+    </div>`).join('')}
+  </div>`;
+  openJobs.forEach(id => loadJobDetail(id));
+}
+async function loadJobDetail(id) {
+  try {
+    const j = await api('/api/jobs/' + encodeURIComponent(id));
+    const el = $('#jd-' + CSS.escape(id));
+    if (el) el.innerHTML = jobCardHTML(j).replace('<details', '<details open');
+  } catch {}
+}
+const sourceLabel = s => s?.label || (s?.path ? baseName(s.path) : s?.url ? baseName(s.url) : s?.kind || '');
+
+/* ================= settings ================= */
+let settingsDraft = null, settingsTab = 'server';
+function openSettings(tab) {
+  settingsDraft = JSON.parse(JSON.stringify(S.config));
+  settingsDraft.path_mappings = settingsDraft.path_mappings || [];
+  settingsDraft.server.token = '';
+  settingsDraft.providers = { ...settingsDraft.providers, assrt_token: '', opensubtitles_key: '' };
+  settingsTab = tab || (S.config.server?.host ? 'server' : 'server');
+  renderSettings();
+}
+function closeModal() { $('#modalRoot').innerHTML = ''; settingsDraft = null; }
+
+function assToHex(a) {
+  const m = /^&H([0-9a-f]{2})?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(a || '');
+  return m ? '#' + m[4] + m[3] + m[2] : '#ffffff';
+}
+const hexToAss = h => '&H00' + h.slice(5, 7) + h.slice(3, 5) + h.slice(1, 3);
+
+function renderSettings() {
+  const c = settingsDraft, st = S.status;
+  const tabs = [['server', 'server', '媒体服务器'], ['lang', 'lang', '语言'], ['paths', 'map', '路径映射'], ['providers', 'globe', '字幕源'], ['style', 'type', '字幕样式'], ['env', 'tool', '工具与环境']];
+  const samplePath = S.lib.movies[0]?.path || '/Movies/Film/Film.mkv';
+  let pane = '';
+  if (settingsTab === 'server') pane = `
+    <div class="field"><span>服务类型</span><div class="seg">${['emby', 'jellyfin', 'plex'].map(t => `<button class="${c.server.type === t ? 'on' : ''}" data-action="setDraft" data-k="server.type" data-v="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
+    <label class="field"><span>服务器地址</span><input class="input" data-draft="server.host" value="${esc(c.server.host)}" placeholder="${c.server.type === 'plex' ? 'http://192.168.1.100:32400' : 'http://192.168.1.100:8096'}"></label>
+    <label class="field"><span>${c.server.type === 'plex' ? 'X-Plex-Token' : 'API Key'}</span><input class="input" type="password" autocomplete="off" data-draft="server.token" value="${esc(c.server.token)}" placeholder="${S.config.token_set ? '已保存，留空保持不变' : (c.server.type === 'plex' ? 'Plex Token' : '在 Emby / Jellyfin 后台「API 密钥」中创建')}">
+      <span class="hint">保存时会先测试连接。密钥只保存在本机配置文件中，不会返回给浏览器。</span></label>`;
+  if (settingsTab === 'lang') pane = `
+    <label class="field"><span>默认学习语种（原声）</span><select class="select" data-draft="language.target_audio">${LANGS.filter(l => l[0] !== 'zh').map(([v, n]) => `<option value="${v}" ${normLang(c.language.target_audio) === v ? 'selected' : ''}>${n} · ${v}</option>`).join('')}</select>
+      <span class="hint">媒体库默认按这个语种筛选，双语字幕文件命名为 <span class="mono">影片.${esc(c.language.native_sub || 'zh')}-${esc(normLang(c.language.target_audio))}.ass</span></span></label>
+    <label class="field"><span>母语字幕（下方显示）</span><select class="select" data-draft="language.native_sub">${LANGS.map(([v, n]) => `<option value="${v}" ${normLang(c.language.native_sub) === v ? 'selected' : ''}>${n} · ${v}</option>`).join('')}</select></label>`;
+  if (settingsTab === 'paths') pane = `
+    <div class="muted" style="font-size:13px">媒体服务器里看到的路径（例如 <span class="mono">${esc(dirName(samplePath))}</span>）在本机可能挂载在别处。添加映射后，BabelSub 可以读取同目录外挂字幕、探测本地文件，并把双语字幕直接写回影片目录。</div>
+    <div class="maprow faint" style="font-size:12px"><div>服务器路径前缀</div><div></div><div>本机路径前缀</div><div></div></div>
+    ${c.path_mappings.map((m, i) => `<div class="maprow"><input class="input mono" data-map="${i}" data-mk="from" value="${esc(m.from)}" placeholder="/Movies"><span class="faint">→</span><input class="input mono" data-map="${i}" data-mk="to" value="${esc(m.to)}" placeholder="/Volumes/CloudDrive/115/Movies"><button class="btn sm icon ghost" data-action="delMap" data-i="${i}">${icon('trash')}</button></div>`).join('')}
+    <div><button class="btn sm" data-action="addMap">${icon('plus')}添加映射</button></div>
+    ${c.path_mappings.length ? `<div class="note">${icon('info')}<div>示例：<span class="mono">${esc(samplePath)}</span><br>→ <span class="mono">${esc(mapPathClient(samplePath, c.path_mappings))}</span></div></div>` : ''}`;
+  if (settingsTab === 'providers') {
+    const p = c.providers;
+    const secret = (k, set, ph) => `<input class="input mono" type="password" autocomplete="off" data-draft="providers.${k}" value="${esc(p[k] || '')}" placeholder="${set ? '已保存，留空保持不变；输入 - 清除' : ph}">`;
+    const row = (k, name, desc, extra = '') => `<div class="provrow"><label class="check"><input type="checkbox" data-draft="providers.${k}" ${p[k] ? 'checked' : ''}><b>${name}</b></label><div style="display:grid;gap:6px"><span class="hint" style="margin:0">${desc}</span>${extra}</div></div>`;
+    pane = `
+    <div>
+    ${row('enable_subtitlecat', 'SubtitleCat', '免 Key。多语种，但大多是机器翻译。')}
+    ${row('enable_assrt', 'ASSRT 射手网', '字幕组中文字幕，适合作为下方中文字幕。需要免费 token：注册 <a href="https://assrt.net" target="_blank" rel="noopener">assrt.net</a> 后在用户面板查看。每分钟限 20 次请求。', secret('assrt_token', S.config.assrt_token_set, 'ASSRT API token'))}
+    ${row('enable_opensubtitles', 'OpenSubtitles', '人工上传的原语字幕较多，适合作为上方原语字幕。需要在 <a href="https://www.opensubtitles.com/consumers" target="_blank" rel="noopener">opensubtitles.com/consumers</a> 创建 API key；匿名下载每天有次数限制。', secret('opensubtitles_key', S.config.opensubtitles_key_set, 'OpenSubtitles API key'))}
+    </div>
+    <span class="hint">token / key 只保存在本机配置文件中，不会返回给浏览器。启用但未填写 key 的字幕源不会参与检索。</span>`;
+  }
+  if (settingsTab === 'style') {
+    const y = c.styling;
+    pane = `
+    <div class="preview" id="stylePreview">${stylePreviewHTML(y)}</div>
+    <div class="grid2">
+      <label class="field"><span>字体</span><input class="input" data-draft="styling.font_name" value="${esc(y.font_name)}"></label>
+      <label class="field"><span>底部边距（px，1080p 画布）</span><input class="input" type="number" data-draft="styling.margin_v" data-num value="${y.margin_v}"></label>
+      <label class="field"><span>原语字号</span><input class="input" type="number" data-draft="styling.primary_font_size" data-num value="${y.primary_font_size}"></label>
+      <label class="field"><span>中文字号</span><input class="input" type="number" data-draft="styling.secondary_font_size" data-num value="${y.secondary_font_size}"></label>
+      <label class="field"><span>原语颜色</span><input class="input" type="color" data-color="styling.primary_color" value="${assToHex(y.primary_color)}" style="padding:2px;width:64px"></label>
+      <label class="field"><span>中文颜色</span><input class="input" type="color" data-color="styling.secondary_color" value="${assToHex(y.secondary_color)}" style="padding:2px;width:64px"></label>
+    </div>
+    <div class="faint" style="font-size:12px">画布固定为 ${y.play_res_x}×${y.play_res_y}，避免 Infuse 等播放器按标清基准放大字体。预览为近似效果。</div>`;
+  }
+  if (settingsTab === 'env') {
+    const row = (k, label, draftKey) => `<div class="toolrow"><div>${label}</div><input class="input mono" data-draft="${draftKey}" value="${esc(c[draftKey] === 'ffsubsync' ? '' : c[draftKey] || '')}" placeholder="自动：${esc(st.tools[k].path)}"><span class="chip ${st.tools[k].ok ? 'ok' : 'err'}">${st.tools[k].ok ? '已找到' : '未找到'}</span></div>`;
+    pane = `
+    ${row('ffmpeg', 'ffmpeg', 'ffmpeg_bin')}${row('ffprobe', 'ffprobe', 'ffprobe_bin')}${row('ffsubsync', 'ffsubsync', 'ffsubsync_bin')}
+    <div class="faint" style="font-size:12px">留空则依次在 BabelSub 同目录、<span class="mono">~/.config/babelsub/venv</span>、PATH 中查找。ffmpeg / ffprobe 用于读取 MKV 轨道和转换字幕格式，ffsubsync 用于对轴。</div>
+    <div class="kv" style="margin-top:6px"><div>版本</div><div>v${esc(st.version)} · ${esc(st.os)}</div><div>配置文件</div><div class="path">${esc(st.config_path)}</div></div>`;
+  }
+  $('#modalRoot').innerHTML = `<div class="scrim on" data-action="closeModal" style="z-index:49"></div>
+  <div class="modal-wrap" data-action="closeModalBg"><div class="modal" role="dialog" aria-label="设置">
+    <div class="mhead"><h3>设置</h3><span class="spacer"></span><button class="btn icon ghost" data-action="closeModal">${icon('x')}</button></div>
+    <div class="mbody">
+      <div class="tabs-v">${tabs.map(([k, ic, n]) => `<button class="${settingsTab === k ? 'on' : ''}" data-action="settingsTab" data-tab="${k}">${icon(ic)}${n}</button>`).join('')}</div>
+      <div class="tabpane">${pane}</div>
+    </div>
+    <div class="mfoot"><span class="faint" id="settingsMsg" style="font-size:12.5px"></span><span class="spacer"></span>
+      <button class="btn" data-action="closeModal">取消</button><button class="btn primary" data-action="saveSettings">保存</button></div>
+  </div></div>`;
+}
+
+function stylePreviewHTML(y) {
+  const t = normLang(settingsDraft?.language?.target_audio) || 'ja';
+  const sample = { ja: 'もう一度、最初からやり直そう。', en: "Let's start over from the beginning.", ko: '처음부터 다시 시작하자.', fr: 'Recommençons depuis le début.' }[t] || "Let's start over from the beginning.";
+  return `<div class="lines" data-k="lines" style="bottom:0;font-family:${esc(y.font_name)},sans-serif">
+    <div data-k="p" style="color:${assToHex(y.primary_color)}">${esc(sample)}</div>
+    <div data-k="s" style="color:${assToHex(y.secondary_color)}">我们从头再来一次吧。</div></div>`;
+}
+function layoutPreview() {
+  const box = $('#stylePreview'); if (!box || !settingsDraft) return;
+  const y = settingsDraft.styling, k = box.clientHeight / (y.play_res_y || 1080);
+  const l = box.querySelector('[data-k=lines]');
+  l.style.bottom = (y.margin_v * k) + 'px';
+  l.querySelector('[data-k=p]').style.fontSize = (y.primary_font_size * k) + 'px';
+  l.querySelector('[data-k=s]').style.fontSize = (y.secondary_font_size * k) + 'px';
+}
+
+function mapPathClient(p, maps) {
+  const n = p.replace(/\\/g, '/');
+  for (const m of maps) {
+    const f = (m.from || '').replace(/\\/g, '/').replace(/\/+$/, '');
+    if (f && m.to && (n === f || n.startsWith(f + '/'))) return m.to.replace(/[\\/]+$/, '') + n.slice(f.length);
+  }
+  return p + '（未匹配）';
+}
+function setPath(obj, path, v) { const ks = path.split('.'); let o = obj; ks.slice(0, -1).forEach(k => o = o[k] = o[k] || {}); o[ks.at(-1)] = v; }
+
+async function saveSettings(force = false) {
+  const msg = $('#settingsMsg');
+  msg.textContent = '正在保存…'; msg.style.color = '';
+  const c = settingsDraft;
+  try {
+    await api('/api/config' + (force ? '?force=1' : ''), { json: c });
+  } catch (e) {
+    msg.style.color = 'var(--err)';
+    msg.textContent = e.message;
+    if (e.data?.can_force && await confirmDialog('连接测试失败', `<p>${esc(e.message)}</p><p class="muted">仍然保存？之后可以再修改。</p>`, '仍然保存')) return saveSettings(true);
+    return;
+  }
+  const prevServer = JSON.stringify([S.config.server.type, S.config.server.host]);
+  const prevLang = S.config.language?.target_audio;
+  [S.config, S.status] = await Promise.all([api('/api/config'), api('/api/status')]);
+  renderEnvPill();
+  closeModal();
+  toast('设置已保存', 'ok');
+  const serverChanged = prevServer !== JSON.stringify([S.config.server.type, S.config.server.host]) || c.server.token;
+  if (prevLang !== S.config.language.target_audio) S.filter.lang = S.config.language.target_audio;
+  if (serverChanged) { S.lib.movies = []; S.lib.loadedLang = null; }
+  if (S.view === 'library' && S.config.server.host && (serverChanged || S.lib.loadedLang !== S.filter.lang)) loadMovies();
+  else route();
+  if (S.drawer) openMovie(S.drawer.id);
+}
+
+function confirmDialog(title, html, okText = '确定') {
+  return new Promise(resolve => {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="scrim on" style="z-index:54"></div><div class="modal-wrap" style="z-index:55"><div class="modal sm" role="alertdialog">
+      <div class="mhead"><h3>${esc(title)}</h3></div><div class="tabpane" style="gap:6px">${html}</div>
+      <div class="mfoot"><span class="spacer"></span><button class="btn" data-r="0">取消</button><button class="btn primary" data-r="1">${esc(okText)}</button></div></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { wrap.remove(); document.removeEventListener('keydown', key, true); resolve(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } if (e.key === 'Enter') { e.stopPropagation(); done(true); } };
+    document.addEventListener('keydown', key, true);
+    wrap.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) done(b.dataset.r === '1'); });
+    wrap.querySelector('.btn.primary').focus();
+  });
+}
+
+/* ================= events ================= */
+let uploadSlot = null, uploadCtx = null;
+const actions = {
+  reload: () => loadMovies(true),
+  clearFilter: () => { S.filter.q = ''; S.filter.status = 'all'; S.filter.page = 1; renderLibrary(); },
+  setStatus: el => { S.filter.status = el.dataset.v; S.filter.page = 1; saveFilter(); renderLibrary(); },
+  page: el => gotoPage(+el.dataset.p),
+  openMovie: (el, e) => { if (e.target.closest('.mactions') && el.classList.contains('mrow')) return; openMovie(el.dataset.id, el.dataset.focus); },
+  closeOverlay: () => showDrawer(false),
+  copy: el => copyText(el.dataset.text),
+  probeMovie: () => probeMovie(),
+  refreshItem: async () => {
+    try { await api('/api/movies/' + encodeURIComponent(S.drawer.id) + '/refresh', { method: 'POST' }); toast('已通知媒体库刷新该条目', 'ok'); }
+    catch (e) { toast(e.message, 'err'); }
+  },
+  searchOnline: el => { const ctx = ctxFor(el); searchOnline(ctx, el.closest('.sec').querySelector('[data-bind=onlineQuery]').value); },
+  searchAlt: el => { const ctx = ctxFor(el); searchOnline(ctx, el.dataset.q); },
+  onlineLang: el => { const ctx = ctxFor(el); ctx.online.langFilter = el.dataset.v; rerender(ctx); },
+  onlineProv: el => { const ctx = ctxFor(el); ctx.online.provFilter = el.dataset.v; ctx.online.langFilter = ''; rerender(ctx); },
+  useOnline: el => {
+    const ctx = ctxFor(el), r = ctx.online.results[+el.dataset.i], b = ctx.builder;
+    if (!b.picked.some(x => x.download_url === r.download_url)) b.picked.push(r);
+    b[el.dataset.slot] = 'url:' + r.download_url;
+    if (!b.syncTouched) b.sync = 'primary';
+    rerender(ctx);
+    toast(`已设为${el.dataset.slot === 'primary' ? '原语' : '中文'}字幕`, 'ok', 1800);
+  },
+  manualPath: el => { const ctx = ctxFor(el); ctx.builder.manual[el.dataset.slot] = !ctx.builder.manual[el.dataset.slot]; rerender(ctx); setTimeout(() => $(`[data-manual=${el.dataset.slot}]`)?.focus(), 0); },
+  applyManual: el => applyManual(ctxFor(el), el.dataset.slot),
+  upload: el => { uploadCtx = ctxFor(el); uploadSlot = el.dataset.slot; $('#fileInput').value = ''; $('#fileInput').click(); },
+  submitJob: el => submitJob(ctxFor(el)),
+  cancelJob: async el => { try { await api('/api/jobs/' + encodeURIComponent(el.dataset.id) + '/cancel', { method: 'POST' }); refreshJobs(); } catch (e) { toast(e.message, 'err'); } },
+  toggleJob: el => { const id = el.dataset.id; openJobs.has(id) ? openJobs.delete(id) : openJobs.add(id); renderJobs(); },
+  openDir: el => { S.local.selected = null; openLocalPath(el.dataset.path); },
+  goPath: () => { S.local.selected = null; openLocalPath($('#localPathInput').value.trim()); },
+  pickVideo: el => selectLocalVideo(el.dataset.path),
+  unpickVideo: () => { S.local.selected = null; S.local.probe = null; S.local.sidecars = []; S.local.builder = newBuilder('local'); renderLocal(); },
+  pickSub: el => {
+    const L = S.local, b = L.builder || (L.builder = newBuilder('local'));
+    const name = baseName(el.dataset.path), lang = guessLangClient(name);
+    if (!b.uploads.some(u => u.path === el.dataset.path)) b.uploads.push({ path: el.dataset.path, name, language: lang });
+    const slot = lang === 'zh' ? 'secondary' : !b.primary ? 'primary' : 'secondary';
+    b[slot] = 'file:' + el.dataset.path;
+    renderLocal();
+    toast(`${name} 已设为${slot === 'primary' ? '原语' : '中文'}字幕`, 'ok', 2000);
+  },
+  openSettings: (el, e) => { e.preventDefault(); openSettings(el.dataset.tab); },
+  settingsTab: el => { settingsTab = el.dataset.tab; renderSettings(); if (settingsTab === 'style') requestAnimationFrame(layoutPreview); },
+  closeModal: () => closeModal(),
+  closeModalBg: (el, e) => { if (e.target === el) closeModal(); },
+  setDraft: el => { setPath(settingsDraft, el.dataset.k, el.dataset.v); renderSettings(); },
+  addMap: () => { const p = S.lib.movies[0]?.path; settingsDraft.path_mappings.push({ from: p && !settingsDraft.path_mappings.length ? p.split(/[\\/]/).slice(0, 2).join('/') : '', to: '' }); renderSettings(); },
+  delMap: el => { settingsDraft.path_mappings.splice(+el.dataset.i, 1); renderSettings(); },
+  saveSettings: () => saveSettings(),
+};
+
+function onClick(e) {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const fn = actions[el.dataset.action];
+  if (fn) fn(el, e);
+}
+
+function onChange(e) {
+  const el = e.target, bind = el.dataset.bind;
+  if (bind === 'lang') { S.filter.lang = el.value; S.filter.page = 1; saveFilter(); loadMovies(); return; }
+  if (bind === 'sort') { S.filter.sort = el.value; S.filter.page = 1; saveFilter(); renderLibrary(); return; }
+  if (bind === 'size') { S.filter.size = +el.value; S.filter.page = 1; saveFilter(); renderLibrary(); return; }
+  if (bind === 'jump') { gotoPage(+el.value); return; }
+  if (bind === 'localLang') { const b = S.local.builder; b.lang = el.value; autoPick(b, localOptions()); renderLocal(); return; }
+  if (['slot', 'sync', 'output', 'refresh'].includes(bind)) {
+    const ctx = ctxFor(el), b = ctx.builder;
+    if (bind === 'slot') {
+      b[el.dataset.slot] = el.value || null;
+      if (!b.syncTouched) { const opts = optionsFor(ctx); const p = opts.find(o => o.key === b.primary), s = opts.find(o => o.key === b.secondary); b.sync = p && s && p.source.kind === 'track' && s.source.kind === 'track' && p.source.path === s.source.path ? 'none' : 'primary'; }
+    }
+    if (bind === 'sync') { b.sync = el.value; b.syncTouched = true; }
+    if (bind === 'output') { b.output = el.value; b.outputTouched = true; }
+    if (bind === 'refresh') b.refresh = el.checked;
+    rerender(ctx);
+    return;
+  }
+  if (el.dataset.draft && el.type === 'checkbox') { setPath(settingsDraft, el.dataset.draft, el.checked); return; }
+  if (el.dataset.draft && el.tagName === 'SELECT') { setPath(settingsDraft, el.dataset.draft, el.value); renderSettings(); return; }
+  if (el.dataset.color) { setPath(settingsDraft, el.dataset.color, hexToAss(el.value)); $('#stylePreview').innerHTML = stylePreviewHTML(settingsDraft.styling); layoutPreview(); }
+}
+
+let qTimer = null;
+function onInput(e) {
+  const el = e.target;
+  if (el.dataset.bind === 'q') {
+    if (e.isComposing) return; // wait for the IME to commit (compositionend)
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { S.filter.q = el.value; S.filter.page = 1; renderLibrary(true); }, 120);
+    return;
+  }
+  if (el.dataset.draft && el.tagName === 'INPUT' && el.type !== 'checkbox') {
+    setPath(settingsDraft, el.dataset.draft, el.dataset.num !== undefined ? (parseInt(el.value, 10) || 0) : el.value);
+    if (el.dataset.draft.startsWith('styling.')) { if (el.dataset.draft === 'styling.font_name') $('#stylePreview').innerHTML = stylePreviewHTML(settingsDraft.styling); layoutPreview(); }
+    return;
+  }
+  if (el.dataset.map !== undefined) { settingsDraft.path_mappings[+el.dataset.map][el.dataset.mk] = el.value; return; }
+}
+
+function onKey(e) {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName);
+  if (e.key === 'Escape') {
+    if ($('#modalRoot').innerHTML) { closeModal(); return; }
+    if (S.drawer) { showDrawer(false); return; }
+    if (typing) document.activeElement.blur();
+    return;
+  }
+  if (e.key === 'Enter' && typing) {
+    const el = document.activeElement;
+    if (el.id === 'localPathInput') actions.goPath();
+    else if (el.dataset.bind === 'onlineQuery') searchOnline(ctxFor(el), el.value);
+    else if (el.dataset.manual) applyManual(ctxFor(el), el.dataset.manual);
+    else if (el.dataset.bind === 'jump') gotoPage(+el.value);
+    return;
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === '/' && S.view === 'library') { e.preventDefault(); $('#q')?.focus(); }
+  if (S.view === 'library' && !S.drawer && !$('#modalRoot').innerHTML) {
+    if (e.key === 'ArrowLeft') gotoPage(S.filter.page - 1);
+    if (e.key === 'ArrowRight') gotoPage(S.filter.page + 1);
+  }
+}
+
+function applyManual(ctx, slot) {
+  const input = $(`[data-manual=${slot}]`);
+  const p = input?.value.trim();
+  if (!p) return;
+  const b = ctx.builder, name = baseName(p);
+  if (!b.uploads.some(u => u.path === p)) b.uploads.push({ path: p, name, language: guessLangClient(name) });
+  b[slot] = 'file:' + p;
+  b.manual[slot] = false;
+  rerender(ctx);
+}
+
+async function onFilePicked(e) {
+  const file = e.target.files[0];
+  if (!file || !uploadCtx) return;
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const r = await api('/api/upload', { method: 'POST', body: fd });
+    const b = uploadCtx.builder;
+    b.uploads.push({ path: r.path, name: r.name, language: r.language });
+    b[uploadSlot] = 'file:' + r.path;
+    rerender(uploadCtx);
+    toast('已上传 ' + r.name, 'ok', 1800);
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+window.addEventListener('resize', layoutPreview);
+new MutationObserver(() => { if ($('#stylePreview')) layoutPreview(); }).observe($('#modalRoot'), { childList: true });
+boot();
+</script>
 </body>
 </html>
