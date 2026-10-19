@@ -45,11 +45,12 @@ func main() {
 	http.HandleFunc("/api/config", s.handleConfig)
 	http.HandleFunc("/api/movies", s.handleMovies)
 	http.HandleFunc("/api/refresh", s.handleRefresh)
+	http.HandleFunc("/api/fetch", s.handleFetch)
 	http.HandleFunc("/", s.handleUI)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
 	fmt.Printf("====================================================================\n")
-	fmt.Printf(" BabelSub (巴别字幕) - 媒体库外语双语字幕工具\n")
+	fmt.Printf(" BabelSub (巴别字幕) - 媒体库外语双语字幕系统\n")
 	fmt.Printf(" 控制台地址: http://localhost:%d\n", *port)
 	fmt.Printf(" 配置文件: %s\n", config.ConfigFilePath())
 	fmt.Printf("====================================================================\n")
@@ -152,6 +153,27 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "id": id})
+}
+
+func (s *Server) handleFetch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	query := r.URL.Query().Get("query")
+	if query == "" {
+		http.Error(w, "missing query param", http.StatusBadRequest)
+		return
+	}
+
+	p := downloader.NewProvider()
+	sources, err := p.FetchSubtitleCat(query)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"sources": []interface{}{}, "error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"query":   query,
+		"sources": sources,
+	})
 }
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
@@ -310,7 +332,7 @@ func handleCLI() {
 
 		if *refSub == "" || *targetSub == "" || *outASS == "" {
 			fmt.Println("用法:")
-			fmt.Println("  babelsub merge --ref <原语言参考轴.srt> --in <待对齐翻译字幕.srt> --out <输出双语.ass>")
+			fmt.Println("  babelsub merge --ref <原语言参考轴.srt> --in <待对齐翻译.srt> --out <输出双语.ass>")
 			fmt.Println("\n说明:")
 			fmt.Println("  工具会自动运行 ffsubsync 将 --in 字幕与 --ref 字幕进行时间轴对齐，")
 			fmt.Println("  并按照标准 1080p 画布输出原语言在上、中文居下的双语 ASS 字幕。")

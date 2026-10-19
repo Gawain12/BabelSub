@@ -57,12 +57,13 @@ type embyItemsResponse struct {
 }
 
 type embyRawItem struct {
-	ID             string            `json:"Id"`
-	Name           string            `json:"Name"`
-	OriginalTitle  string            `json:"OriginalTitle"`
-	ProductionYear int               `json:"ProductionYear"`
-	Path           string            `json:"Path"`
-	MediaStreams   []embyRawStream   `json:"MediaStreams"`
+	ID                  string            `json:"Id"`
+	Name                string            `json:"Name"`
+	OriginalTitle       string            `json:"OriginalTitle"`
+	ProductionYear      int               `json:"ProductionYear"`
+	Path                string            `json:"Path"`
+	ProductionLocations []string          `json:"ProductionLocations"`
+	MediaStreams        []embyRawStream   `json:"MediaStreams"`
 }
 
 type embyRawStream struct {
@@ -82,13 +83,24 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 
 	langMatch := strings.ToLower(targetAudioLang)
 	var langAliases []string
+	var countryAliases []string
+
 	switch langMatch {
 	case "ja", "jpn", "japanese":
 		langAliases = []string{"ja", "jpn", "japanese"}
+		countryAliases = []string{"japan", "日本"}
 	case "zh", "chi", "chinese":
 		langAliases = []string{"zh", "chi", "chinese", "zho"}
+		countryAliases = []string{"china", "taiwan", "hong kong", "中国", "台湾", "香港"}
 	case "en", "eng", "english":
 		langAliases = []string{"en", "eng", "english"}
+		countryAliases = []string{"united states", "united kingdom", "australia", "canada", "美国", "英国"}
+	case "fr", "fre", "fra", "french":
+		langAliases = []string{"fr", "fre", "fra", "french"}
+		countryAliases = []string{"france", "法国"}
+	case "ko", "kor", "korean":
+		langAliases = []string{"ko", "kor", "korean"}
+		countryAliases = []string{"south korea", "korea", "韩国"}
 	default:
 		if langMatch != "" {
 			langAliases = []string{langMatch}
@@ -96,7 +108,7 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 	}
 
 	for {
-		reqURL := fmt.Sprintf("%s/%s/Items?IncludeItemTypes=Movie&Recursive=true&Fields=MediaSources,MediaStreams,Path,OriginalTitle,ProductionYear&StartIndex=%d&Limit=%d&api_key=%s",
+		reqURL := fmt.Sprintf("%s/%s/Items?IncludeItemTypes=Movie&Recursive=true&Fields=MediaSources,MediaStreams,Path,OriginalTitle,ProductionYear,ProductionLocations&StartIndex=%d&Limit=%d&api_key=%s",
 			e.Host, e.prefix, startIndex, limit, url.QueryEscape(e.APIKey))
 
 		req, err := http.NewRequest("GET", reqURL, nil)
@@ -164,7 +176,27 @@ func (e *EmbyAdapter) ListMovies(targetAudioLang string) ([]MediaItem, error) {
 				}
 			}
 
-			if len(langAliases) > 0 && !hasAudioMatch {
+			// Dual criteria: match by audio track OR by film production country (e.g. unprobed .strm movies from Japan)
+			isCountryMatch := false
+			if len(countryAliases) > 0 {
+				for _, loc := range item.ProductionLocations {
+					locLower := strings.ToLower(loc)
+					for _, cAlias := range countryAliases {
+						if strings.Contains(locLower, cAlias) {
+							isCountryMatch = true
+							if matchedAudioName == "" {
+								matchedAudioName = strings.ToUpper(langMatch)
+							}
+							break
+						}
+					}
+					if isCountryMatch {
+						break
+					}
+				}
+			}
+
+			if len(langAliases) > 0 && !hasAudioMatch && !isCountryMatch {
 				continue
 			}
 
