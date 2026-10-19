@@ -49,10 +49,9 @@ func main() {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
 	fmt.Printf("====================================================================\n")
-	fmt.Printf(" [BabelSub] 专为外语学习打造的媒体库双语字幕系统\n")
-	fmt.Printf(" Web 控制台地址: http://localhost:%d\n", *port)
-	fmt.Printf(" 配置文件位置: %s\n", config.ConfigFilePath())
-	fmt.Printf(" 免责提示: 自动对轴/翻译字幕仅供语言学习辅助，可能存在潜在偏差\n")
+	fmt.Printf(" BabelSub (巴别字幕) - 媒体库外语双语字幕工具\n")
+	fmt.Printf(" 控制台地址: http://localhost:%d\n", *port)
+	fmt.Printf(" 配置文件: %s\n", config.ConfigFilePath())
 	fmt.Printf("====================================================================\n")
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
@@ -165,9 +164,11 @@ func handleCLI() {
 	switch cmd {
 	case "config":
 		cmdConfig := flag.NewFlagSet("config", flag.ExitOnError)
-		serverType := cmdConfig.String("type", "emby", "Server type (emby/jellyfin/plex)")
-		host := cmdConfig.String("host", "", "Server address URL")
-		token := cmdConfig.String("token", "", "API key or token")
+		serverType := cmdConfig.String("type", "emby", "媒体服务类型 (emby / jellyfin / plex)")
+		host := cmdConfig.String("host", "", "服务器地址 URL (如 http://192.168.1.100:8096)")
+		token := cmdConfig.String("token", "", "API 密钥或 X-Plex-Token")
+		audioLang := cmdConfig.String("audio", "ja", "默认筛选的原声音轨语言 (如 ja / en / fr / ko)")
+		nativeLang := cmdConfig.String("native", "zh", "默认辅助字幕语言 (如 zh / en)")
 		cmdConfig.Parse(os.Args[2:])
 
 		cfg, _ := config.LoadConfig()
@@ -180,9 +181,16 @@ func handleCLI() {
 		if *serverType != "" {
 			cfg.Server.Type = *serverType
 		}
+		if *audioLang != "" {
+			cfg.Language.TargetAudio = *audioLang
+		}
+		if *nativeLang != "" {
+			cfg.Language.NativeSub = *nativeLang
+		}
 
 		if cfg.Server.Host == "" || cfg.Server.Token == "" {
-			fmt.Println("Error: --host and --token are required")
+			fmt.Println("错误: --host 和 --token 为必填项。")
+			fmt.Println("示例: babelsub config --type emby --host http://192.168.1.100:8096 --token your_token")
 			os.Exit(1)
 		}
 
@@ -193,24 +201,30 @@ func handleCLI() {
 			adp = adapter.NewEmbyAdapter(cfg.Server.Host, cfg.Server.Token, cfg.Server.Type == "jellyfin")
 		}
 
-		fmt.Printf("[*] Testing connection to %s at %s...\n", cfg.Server.Type, cfg.Server.Host)
+		fmt.Printf("[*] 正在测试连接至 %s (%s)...\n", cfg.Server.Type, cfg.Server.Host)
 		if err := adp.Ping(); err != nil {
-			fmt.Printf("[-] Connection failed: %v\n", err)
+			fmt.Printf("[-] 连接失败: %v\n", err)
 			os.Exit(1)
 		}
 		config.SaveConfig(cfg)
-		fmt.Printf("[+] Successfully connected! Saved configuration to: %s\n", config.ConfigFilePath())
+		fmt.Printf("[+] 连接成功！配置已保存至: %s\n", config.ConfigFilePath())
 
 	case "scan":
 		cmdScan := flag.NewFlagSet("scan", flag.ExitOnError)
-		lang := cmdScan.String("lang", "ja", "Target audio language")
-		missingOnly := cmdScan.Bool("missing-only", false, "Filter to items missing bilingual subtitle")
+		lang := cmdScan.String("lang", "", "按原声音轨语言过滤 (如 ja 日语, en 英语, fr 法语, ko 韩语，留空则使用配置默认值)")
+		missingOnly := cmdScan.Bool("missing-only", false, "仅列出尚未制作对应双语字幕的电影条目")
+		keyword := cmdScan.String("query", "", "按电影名称或关键词进一步筛选")
 		cmdScan.Parse(os.Args[2:])
 
 		cfg, err := config.LoadConfig()
 		if err != nil || cfg.Server.Host == "" {
-			fmt.Println("[-] Server not configured. Run `babelsub config` first.")
+			fmt.Println("[-] 媒体服务器尚未配置。请先运行 `babelsub config` 进行连接配置。")
 			os.Exit(1)
+		}
+
+		filterLang := *lang
+		if filterLang == "" {
+			filterLang = cfg.Language.TargetAudio
 		}
 
 		var adp adapter.MediaServerAdapter
@@ -220,21 +234,28 @@ func handleCLI() {
 			adp = adapter.NewEmbyAdapter(cfg.Server.Host, cfg.Server.Token, cfg.Server.Type == "jellyfin")
 		}
 
-		fmt.Printf("[*] Querying media server for movies with '%s' audio...\n", *lang)
-		movies, err := adp.ListMovies(*lang)
+		fmt.Printf("[*] 正在零扫盘检索媒体库 (音轨语言: %s)...\n", filterLang)
+		movies, err := adp.ListMovies(filterLang)
 		if err != nil {
-			fmt.Printf("[-] Failed to query library: %v\n", err)
+			fmt.Printf("[-] 检索媒体库失败: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("[+] Found %d movies:\n", len(movies))
-		for i, m := range movies {
+		matchedCount := 0
+		fmt.Println("--------------------------------------------------------------------------------")
+		for _, m := range movies {
 			if *missingOnly && m.HasBilingual {
 				continue
 			}
-			tag := "[缺失双语]"
+			if *keyword != "" && !strings.Contains(strings.ToLower(m.Name), strings.ToLower(*keyword)) &&
+				!strings.Contains(strings.ToLower(m.OriginalTitle), strings.ToLower(*keyword)) {
+				continue
+			}
+
+			matchedCount++
+			tag := "[待制备]"
 			if m.HasBilingual {
-				tag = "[已就绪双语]"
+				tag = "[已就绪]"
 			}
 			subCount := 0
 			for _, s := range m.Streams {
@@ -242,20 +263,57 @@ func handleCLI() {
 					subCount++
 				}
 			}
-			fmt.Printf("  [%d] %s %s (ID: %s, 年份: %d)\n", i+1, tag, m.Name, m.ID, m.Year)
-			fmt.Printf("       路径: %s\n", m.Path)
-			fmt.Printf("       音轨: %s | 字幕轨: %d条\n", m.TargetAudio, subCount)
+			fmt.Printf("[%s] %s (年份: %d | ID: %s)\n", tag, m.Name, m.Year, m.ID)
+			fmt.Printf("       音轨: %s | 现有字幕: %d条 | 路径: %s\n", m.TargetAudio, subCount, m.Path)
+		}
+		fmt.Println("--------------------------------------------------------------------------------")
+		fmt.Printf("[+] 检索完成，共匹配到 %d 部影片。\n", matchedCount)
+
+	case "fetch":
+		cmdFetch := flag.NewFlagSet("fetch", flag.ExitOnError)
+		query := cmdFetch.String("query", "", "电影片名 (例如: 'Swing Girls' 或 '摇摆少女')")
+		lang := cmdFetch.String("lang", "", "仅显示指定语言的字幕 (如 ja, zh, en)")
+		cmdFetch.Parse(os.Args[2:])
+
+		if *query == "" {
+			fmt.Println("用法: babelsub fetch --query <片名> [--lang ja/zh/en]")
+			os.Exit(1)
+		}
+
+		p := downloader.NewProvider()
+		fmt.Printf("[*] 正在公开字幕源检索: %s...\n", *query)
+		sources, err := p.FetchSubtitleCat(*query)
+		if err != nil {
+			fmt.Printf("[-] 检索失败: %v\n", err)
+			os.Exit(1)
+		}
+
+		matched := 0
+		fmt.Printf("[+] 找到以下字幕资源:\n")
+		for _, src := range sources {
+			if *lang != "" && !strings.EqualFold(src.Language, *lang) {
+				continue
+			}
+			matched++
+			fmt.Printf("  [%d] [%s] %s\n       下载链接: %s\n", matched, strings.ToUpper(src.Language), src.Filename, src.DownloadURL)
+		}
+		if matched == 0 {
+			fmt.Println("  (未找到匹配指定语种的字幕条目)")
 		}
 
 	case "merge":
 		cmdMerge := flag.NewFlagSet("merge", flag.ExitOnError)
-		refSub := cmdMerge.String("ref", "", "Reference subtitle for timing (e.g. Japanese .srt)")
-		targetSub := cmdMerge.String("in", "", "Target subtitle to synchronize (e.g. Chinese .srt)")
-		outASS := cmdMerge.String("out", "", "Output bilingual .ass path")
+		refSub := cmdMerge.String("ref", "", "【参考基准字幕】：通常为原片语言字幕（如日语/英语 .srt），其时间轴作为对齐标杆")
+		targetSub := cmdMerge.String("in", "", "【待对齐字幕】：通常为中文翻译字幕（.srt），将按参考轴自动修正时间戳偏差与拉伸")
+		outASS := cmdMerge.String("out", "", "【输出路径】：合成后的双语 .ass 字幕文件路径")
 		cmdMerge.Parse(os.Args[2:])
 
 		if *refSub == "" || *targetSub == "" || *outASS == "" {
-			fmt.Println("Usage: babelsub merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
+			fmt.Println("用法:")
+			fmt.Println("  babelsub merge --ref <原语言参考轴.srt> --in <待对齐翻译字幕.srt> --out <输出双语.ass>")
+			fmt.Println("\n说明:")
+			fmt.Println("  工具会自动运行 ffsubsync 将 --in 字幕与 --ref 字幕进行时间轴对齐，")
+			fmt.Println("  并按照标准 1080p 画布输出原语言在上、中文居下的双语 ASS 字幕。")
 			os.Exit(1)
 		}
 
@@ -263,53 +321,52 @@ func handleCLI() {
 		s := syncer.NewSyncer(cfg.FFsubsyncBin)
 		syncedSRT := filepath.Join(os.TempDir(), "synced_temp.srt")
 
-		fmt.Println("[*] Running ffsubsync timing alignment...")
+		fmt.Println("[1/2] 正在运行 ffsubsync 进行时间轴自适应校准...")
 		if err := s.Sync(*refSub, *targetSub, syncedSRT); err != nil {
-			fmt.Printf("[-] Subtitle sync failed: %v\n", err)
+			fmt.Printf("[-] 对轴失败: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("[+] Timing synced! Generating bilingual ASS...")
+		fmt.Println("[2/2] 校准完毕，正在生成标准排版双语 ASS...")
 
 		if err := ass.GenerateBilingualASS(*refSub, syncedSRT, *outASS, &cfg.Styling); err != nil {
-			fmt.Printf("[-] ASS generation failed: %v\n", err)
+			fmt.Printf("[-] ASS 合成失败: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("[+] Bilingual ASS saved successfully: %s\n", *outASS)
-		fmt.Println("[Notice] Subtitle is generated for language learning. Please review as reference.")
+		fmt.Printf("[+] 成功输出双语字幕: %s\n", *outASS)
 
-	case "fetch":
-		cmdFetch := flag.NewFlagSet("fetch", flag.ExitOnError)
-		query := cmdFetch.String("query", "", "Movie title to search")
-		cmdFetch.Parse(os.Args[2:])
-
-		if *query == "" {
-			fmt.Println("Usage: babelsub fetch --query <MovieName>")
-			os.Exit(1)
-		}
-
-		p := downloader.NewProvider()
-		fmt.Printf("[*] Searching subtitle sources for: %s...\n", *query)
-		sources, err := p.FetchSubtitleCat(*query)
-		if err != nil {
-			fmt.Printf("[-] Search failed: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("[+] Found %d available subtitle tracks:\n", len(sources))
-		for idx, src := range sources {
-			fmt.Printf("  [%d] [%s] %s\n", idx+1, src.Language, src.Filename)
-		}
+	case "help", "--help", "-h":
+		printHelp()
 
 	default:
+		fmt.Printf("未知命令: %s\n\n", cmd)
 		printHelp()
+		os.Exit(1)
 	}
 }
 
 func printHelp() {
-	fmt.Println("BabelSub (巴别字幕) - Dedicated to Language Acquisition via Media")
-	fmt.Println("\nUsage:")
-	fmt.Println("  babelsub                                   Start Web GUI and REST server")
-	fmt.Println("  babelsub config --type emby --host <url> --token <token>")
-	fmt.Println("  babelsub scan [--lang ja] [--missing-only]")
-	fmt.Println("  babelsub fetch --query <MovieTitle>")
-	fmt.Println("  babelsub merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
+	fmt.Println("BabelSub (巴别字幕) - 专为外语学习打造的媒体库双语字幕系统")
+	fmt.Println("\n用法:")
+	fmt.Println("  babelsub <命令> [参数...]")
+	fmt.Println("\n常用命令:")
+	fmt.Println("  config    配置媒体服务器连接 (Emby / Jellyfin / Plex)")
+	fmt.Println("            参数: --type <emby/jellyfin/plex> --host <URL> --token <KEY> [--audio ja] [--native zh]")
+	fmt.Println("")
+	fmt.Println("  scan      快速检索媒体库影视条目 (零扫盘，不伤网盘)")
+	fmt.Println("            参数: [--lang ja/en/fr/ko] [--missing-only] [--query 关键词]")
+	fmt.Println("            示例: babelsub scan --lang ja --missing-only  # 查看未就绪双语的日语电影")
+	fmt.Println("")
+	fmt.Println("  fetch     在线搜索指定电影的公开字幕源 (免 Key)")
+	fmt.Println("            参数: --query <片名> [--lang 语言代码]")
+	fmt.Println("            示例: babelsub fetch --query \"Swing Girls\" --lang ja")
+	fmt.Println("")
+	fmt.Println("  merge     以原语字幕为基准自动对轴，并缝合生成双语 ASS 字幕")
+	fmt.Println("            参数: --ref <参考字幕.srt> --in <待对齐翻译.srt> --out <输出.ass>")
+	fmt.Println("            示例: babelsub merge --ref ja.srt --in zh.srt --out movie.zh-ja.ass")
+	fmt.Println("")
+	fmt.Println("  (无参数)  启动本地 Web 控制台服务")
+	fmt.Println("            参数: --port 18980 (默认端口 18980)")
+	fmt.Println("            访问: http://localhost:18980")
+	fmt.Println("\n跨平台说明:")
+	fmt.Println("  已原生支持 macOS (Apple Silicon / Intel)、Linux (x86_64 / arm64) 以及 Windows (x86_64)。")
 }
