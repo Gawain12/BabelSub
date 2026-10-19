@@ -1,4 +1,4 @@
-name: Cross Platform Release
+name: Build & Release Bundles
 
 on:
   push:
@@ -7,27 +7,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Multi-Platform Binaries
-    runs-on: ubuntu-latest
+  build-and-release:
+    name: Build All-in-One Bundles
     strategy:
       matrix:
         include:
-          - os: darwin
+          - os: macos-latest
+            platform: darwin
             arch: arm64
-            suffix: mac-arm64
-          - os: darwin
+            artifact_name: babelsub-darwin-arm64
+            ext: ""
+          - os: ubuntu-latest
+            platform: linux
             arch: amd64
-            suffix: mac-intel
-          - os: linux
+            artifact_name: babelsub-linux-amd64
+            ext: ""
+          - os: windows-latest
+            platform: windows
             arch: amd64
-            suffix: linux-amd64
-          - os: linux
-            arch: arm64
-            suffix: linux-arm64
-          - os: windows
-            arch: amd64
-            suffix: windows-amd64.exe
+            artifact_name: babelsub-windows-amd64
+            ext: ".exe"
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -38,17 +39,53 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: 0
-        run: |
-          mkdir -p dist
-          go build -ldflags="-s -w" -o dist/babelsub-${{ matrix.suffix }} ./cmd/babelsub
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Upload artifact
+      - name: Install dependencies & PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller ffsubsync
+
+      - name: Build Standalone ffsubsync
+        shell: bash
+        run: |
+          mkdir -p bundle
+          pyinstaller --noconfirm --clean --onefile --name "ffsubsync${{ matrix.ext }}" --collect-all ffsubsync -c "$(python -c 'import ffsubsync, os; print(os.path.join(os.path.dirname(ffsubsync.__file__), "ffsubsync.py"))')"
+          cp dist/ffsubsync${{ matrix.ext }} bundle/
+
+      - name: Build BabelSub Core Binary
+        shell: bash
+        run: |
+          go build -ldflags="-s -w" -o "bundle/babelsub${{ matrix.ext }}" ./cmd/babelsub
+
+      - name: Create Distribution Archive
+        shell: bash
+        run: |
+          cd bundle
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            7z a "../${{ matrix.artifact_name }}.zip" *
+          else
+            tar -czvf "../${{ matrix.artifact_name }}.tar.gz" *
+          fi
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: babelsub-${{ matrix.suffix }}
-          path: dist/*
+          name: ${{ matrix.artifact_name }}
+          path: |
+            *.zip
+            *.tar.gz
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.zip
+            *.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true

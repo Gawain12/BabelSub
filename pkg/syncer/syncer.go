@@ -6,21 +6,50 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type Syncer struct {
 	FFsubsyncPath string
 }
 
+func findExecutable(name string) string {
+	// 1. Check current executable directory (for bundled distributions)
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exe)
+		candidate := filepath.Join(dir, name)
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
+		}
+		// Windows check (.exe)
+		candidateExe := filepath.Join(dir, name+".exe")
+		if info, err := os.Stat(candidateExe); err == nil && !info.IsDir() {
+			return candidateExe
+		}
+	}
+
+	// 2. Check ~/.config/babelsub/venv/bin/ffsubsync
+	home, _ := os.UserHomeDir()
+	candidateVenv := filepath.Join(home, ".config", "babelsub", "venv", "bin", name)
+	if info, err := os.Stat(candidateVenv); err == nil && !info.IsDir() {
+		return candidateVenv
+	}
+	candidateVenvWin := filepath.Join(home, ".config", "babelsub", "venv", "Scripts", name+".exe")
+	if info, err := os.Stat(candidateVenvWin); err == nil && !info.IsDir() {
+		return candidateVenvWin
+	}
+
+	// 3. Fallback to system PATH
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
+	return name
+}
+
 func NewSyncer(customPath string) *Syncer {
 	bin := customPath
 	if bin == "" {
-		// Look up in PATH
-		if p, err := exec.LookPath("ffsubsync"); err == nil {
-			bin = p
-		} else {
-			bin = "ffsubsync"
-		}
+		bin = findExecutable("ffsubsync")
 	}
 	return &Syncer{FFsubsyncPath: bin}
 }
@@ -42,7 +71,7 @@ func (s *Syncer) SyncWithContext(
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ffsubsync: %w", err)
+		return fmt.Errorf("failed to start ffsubsync (%s): %w", s.FFsubsyncPath, err)
 	}
 
 	scanner := bufio.NewScanner(stderrPipe)
