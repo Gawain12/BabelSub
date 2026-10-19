@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-# SubSync Studio Quick Installation & Environment Bootstrap Script
+# BabelSub Quick Installation & Environment Bootstrap Script
 
 echo "========================================================"
-echo "   SubSync Studio - Environment Setup Script"
+echo "   BabelSub (巴别字幕) - Environment Setup Script"
 echo "========================================================"
 
 # 1. Check / Install ffmpeg
@@ -25,7 +25,7 @@ else
 fi
 
 # 2. Check / Setup Python virtualenv for ffsubsync
-VENV_DIR="$HOME/.config/subsync-studio/venv"
+VENV_DIR="$HOME/.config/babelsub/venv"
 if [ ! -f "$VENV_DIR/bin/ffsubsync" ]; then
     echo "[*] Setting up isolated Python environment for ffsubsync at: $VENV_DIR..."
     mkdir -p "$(dirname "$VENV_DIR")"
@@ -39,20 +39,20 @@ fi
 
 # 3. Compile Go binary
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-echo "[*] Building SubSync Studio binary..."
+echo "[*] Building BabelSub binary..."
 cd "$PROJECT_DIR"
 mkdir -p bin
-go build -o bin/subsync ./cmd/subsync
+go build -o bin/babelsub ./cmd/babelsub
 
 echo ""
 echo "========================================================"
 echo "   Build & Environment Setup Complete!"
 echo "========================================================"
-echo "Executable location: $PROJECT_DIR/bin/subsync"
+echo "Executable location: $PROJECT_DIR/bin/babelsub"
 echo ""
 echo "Next Steps:"
-echo "1. Run Web GUI:      ./bin/subsync"
-echo "2. Connect Emby:     ./bin/subsync config --type emby --host <URL> --token <KEY>"
-echo "3. Scan library:     ./bin/subsync scan --lang ja"
-echo "4. Fetch subtitles:  ./bin/subsync fetch --query \"Movie Name\""
+echo "1. Run Web GUI:      ./bin/babelsub"
+echo "2. Connect Emby:     ./bin/babelsub config --type emby --host <URL> --token <KEY>"
+echo "3. Scan library:     ./bin/babelsub scan --lang ja"
+echo "4. Fetch subtitles:  ./bin/babelsub fetch --query \"Movie Name\""
 echo "========================================================"

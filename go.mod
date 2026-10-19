@@ -1,4 +1,4 @@
-module github.com/gawaintan/subsync-studio
+module github.com/Gawain12/BabelSub
 
 go 1.22
 

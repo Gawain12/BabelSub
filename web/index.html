@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>SubSync Studio - 双语字幕智能制作 & 对轴系统</title>
+  <title>BabelSub (巴别字幕) - 专为外语学习打造的媒体库双语字幕系统</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -14,12 +14,16 @@
 <body class="p-6">
   <div class="max-w-6xl mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between pb-6 mb-6 border-b border-[#30363d]">
+    <div class="flex items-center justify-between pb-6 mb-4 border-b border-[#30363d]">
       <div class="flex items-center gap-3">
-        <i class="fa-solid fa-language text-3xl text-blue-500"></i>
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-earth-asia"></i>
+        </div>
         <div>
-          <h1 class="text-2xl font-bold text-white">SubSync Studio</h1>
-          <p class="text-sm text-gray-400">零扫盘 · 多媒体库直连 · 自动对轴中外双语字幕工具</p>
+          <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+            BabelSub <span class="text-xs px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 font-normal border border-blue-700">Language Immersion</span>
+          </h1>
+          <p class="text-xs text-gray-400">打破巴别塔的语言壁垒 · 零扫盘 · 毫秒级对轴 · 媒体库外语双语伴读系统</p>
         </div>
       </div>
       <div class="flex gap-2">
@@ -27,8 +31,17 @@
           <i class="fa-solid fa-gear"></i> 服务器设置
         </button>
         <button onclick="loadMovies()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-2">
-          <i class="fa-solid fa-rotate"></i> 检索电影条目
+          <i class="fa-solid fa-rotate"></i> 检索影视库
         </button>
+      </div>
+    </div>
+
+    <!-- Learner Disclaimer Notice Banner -->
+    <div class="bg-amber-950/30 border border-amber-800/60 rounded-lg p-3 mb-6 flex items-start gap-3 text-xs text-amber-200/90 leading-relaxed">
+      <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 text-sm"></i>
+      <div>
+        <span class="font-bold text-amber-300">学习者免责提示 (Learner's Notice)：</span>
+        本工具专为外语影视沉浸式学习（Language Immersion）提供双语对照伴读。双语字幕由算法时间轴对齐、公开源检索或机器翻译辅助合成，<b>可能存在生僻俚语误译或局部对齐细微偏差</b>。请作为听力跟读与语感培养的辅助参考。
       </div>
     </div>
 
@@ -36,7 +49,7 @@
     <div class="card p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400">原声语言:</label>
+          <label class="text-sm text-gray-400">学习目标语言:</label>
           <select id="langSelect" onchange="loadMovies()" class="bg-[#0d1117] border border-[#30363d] text-white text-sm rounded px-3 py-1.5">
             <option value="ja" selected>日语 (Japanese)</option>
             <option value="en">英语 (English)</option>
@@ -46,7 +59,7 @@
         </div>
         <div class="flex items-center gap-2">
           <input type="checkbox" id="missingOnly" onchange="filterList()" class="rounded bg-[#0d1117] border-[#30363d]">
-          <label for="missingOnly" class="text-sm text-gray-300">仅显示未做双语字幕</label>
+          <label for="missingOnly" class="text-sm text-gray-300">仅显示未就绪双语的电影</label>
         </div>
       </div>
       <div id="statsBadge" class="text-sm text-gray-400">正在获取...</div>
@@ -60,7 +73,7 @@
             <th class="p-3">电影名称</th>
             <th class="p-3">年份</th>
             <th class="p-3">音轨 / 字幕轨</th>
-            <th class="p-3">双语状态</th>
+            <th class="p-3">双语学习就绪状态</th>
             <th class="p-3 text-right">操作</th>
           </tr>
         </thead>
@@ -72,9 +85,9 @@
   </div>
 
   <!-- Config Modal -->
-  <div id="configModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4">
+  <div id="configModal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4 z-50">
     <div class="card max-w-md w-full p-6">
-      <h3 class="text-lg font-bold text-white mb-4">媒体库服务器连接配置</h3>
+      <h3 class="text-lg font-bold text-white mb-4">媒体库连接设置</h3>
       <div class="space-y-4">
         <div>
           <label class="block text-xs text-gray-400 mb-1">服务类型</label>
@@ -86,7 +99,7 @@
         </div>
         <div>
           <label class="block text-xs text-gray-400 mb-1">服务器地址 (Host)</label>
-          <input id="cfgHost" type="text" placeholder="http://192.168.1.81:8096" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-white text-sm">
+          <input id="cfgHost" type="text" placeholder="http://192.168.1.100:8096" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-white text-sm">
         </div>
         <div>
           <label class="block text-xs text-gray-400 mb-1">API Token / Key</label>
@@ -106,10 +119,10 @@
     async function fetchConfig() {
       const res = await fetch('/api/config');
       const cfg = await res.json();
-      document.getElementById('cfgType').value = cfg.server_type || 'emby';
-      document.getElementById('cfgHost').value = cfg.host || '';
-      document.getElementById('cfgToken').value = cfg.token || '';
-      if (!cfg.host || !cfg.token) {
+      document.getElementById('cfgType').value = (cfg.server && cfg.server.type) || 'emby';
+      document.getElementById('cfgHost').value = (cfg.server && cfg.server.host) || '';
+      document.getElementById('cfgToken').value = (cfg.server && cfg.server.token) || '';
+      if (!cfg.server || !cfg.server.host || !cfg.server.token) {
         openConfigModal();
       } else {
         loadMovies();
@@ -121,11 +134,15 @@
 
     async function saveConfig() {
       const data = {
-        server_type: document.getElementById('cfgType').value,
-        host: document.getElementById('cfgHost').value,
-        token: document.getElementById('cfgToken').value,
-        target_audio: document.getElementById('langSelect').value,
-        auto_refresh: true
+        server: {
+          type: document.getElementById('cfgType').value,
+          host: document.getElementById('cfgHost').value,
+          token: document.getElementById('cfgToken').value
+        },
+        language: {
+          target_audio: document.getElementById('langSelect').value,
+          native_sub: 'zh'
+        }
       };
       const res = await fetch('/api/config', {
         method: 'POST',
@@ -169,7 +186,7 @@
       tbody.innerHTML = list.map(m => {
         const subCount = (m.streams || []).filter(s => s.type === 'Subtitle').length;
         const tag = m.has_bilingual
-          ? '<span class="text-green-400 text-xs px-2 py-1 rounded bg-green-950/40 border border-green-800"><i class="fa-solid fa-check"></i> 已就绪</span>'
+          ? '<span class="text-green-400 text-xs px-2 py-1 rounded bg-green-950/40 border border-green-800"><i class="fa-solid fa-check"></i> 双语已就绪</span>'
           : '<span class="text-amber-400 text-xs px-2 py-1 rounded bg-amber-950/40 border border-amber-800"><i class="fa-solid fa-clock"></i> 待制备</span>';
         
         return '<tr class="hover:bg-[#1c2128]">' +

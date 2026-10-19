@@ -74,7 +74,7 @@ func DefaultConfig() *Config {
 
 func ConfigFilePath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "subsync-studio", "config.yaml")
+	return filepath.Join(home, ".config", "babelsub", "config.yaml")
 }
 
 func LoadConfig() (*Config, error) {

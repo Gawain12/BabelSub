@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gawaintan/subsync-studio/pkg/adapter"
-	"github.com/gawaintan/subsync-studio/pkg/ass"
-	"github.com/gawaintan/subsync-studio/pkg/config"
-	"github.com/gawaintan/subsync-studio/pkg/downloader"
-	"github.com/gawaintan/subsync-studio/pkg/syncer"
+	"github.com/Gawain12/BabelSub/pkg/adapter"
+	"github.com/Gawain12/BabelSub/pkg/ass"
+	"github.com/Gawain12/BabelSub/pkg/config"
+	"github.com/Gawain12/BabelSub/pkg/downloader"
+	"github.com/Gawain12/BabelSub/pkg/syncer"
 )
 
 //go:embed web/index.html
@@ -48,11 +48,12 @@ func main() {
 	http.HandleFunc("/", s.handleUI)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *port)
-	fmt.Printf("===================================================\n")
-	fmt.Printf(" [SubSync Studio] GUI & REST Core running!\n")
-	fmt.Printf(" Web UI Address: http://localhost:%d\n", *port)
-	fmt.Printf(" Config location: %s\n", config.ConfigFilePath())
-	fmt.Printf("===================================================\n")
+	fmt.Printf("====================================================================\n")
+	fmt.Printf(" [BabelSub] 专为外语学习打造的媒体库双语字幕系统\n")
+	fmt.Printf(" Web 控制台地址: http://localhost:%d\n", *port)
+	fmt.Printf(" 配置文件位置: %s\n", config.ConfigFilePath())
+	fmt.Printf(" 免责提示: 自动对轴/翻译字幕仅供语言学习辅助，可能存在潜在偏差\n")
+	fmt.Printf("====================================================================\n")
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Server error: %v", err)
@@ -208,7 +209,7 @@ func handleCLI() {
 
 		cfg, err := config.LoadConfig()
 		if err != nil || cfg.Server.Host == "" {
-			fmt.Println("[-] Server not configured. Run `subsync config` first.")
+			fmt.Println("[-] Server not configured. Run `babelsub config` first.")
 			os.Exit(1)
 		}
 
@@ -254,7 +255,7 @@ func handleCLI() {
 		cmdMerge.Parse(os.Args[2:])
 
 		if *refSub == "" || *targetSub == "" || *outASS == "" {
-			fmt.Println("Usage: subsync merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
+			fmt.Println("Usage: babelsub merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
 			os.Exit(1)
 		}
 
@@ -274,6 +275,7 @@ func handleCLI() {
 			os.Exit(1)
 		}
 		fmt.Printf("[+] Bilingual ASS saved successfully: %s\n", *outASS)
+		fmt.Println("[Notice] Subtitle is generated for language learning. Please review as reference.")
 
 	case "fetch":
 		cmdFetch := flag.NewFlagSet("fetch", flag.ExitOnError)
@@ -281,7 +283,7 @@ func handleCLI() {
 		cmdFetch.Parse(os.Args[2:])
 
 		if *query == "" {
-			fmt.Println("Usage: subsync fetch --query <MovieName>")
+			fmt.Println("Usage: babelsub fetch --query <MovieName>")
 			os.Exit(1)
 		}
 
@@ -303,11 +305,11 @@ func handleCLI() {
 }
 
 func printHelp() {
-	fmt.Println("SubSync Studio - High Performance Bilingual Subtitle Pipeline")
+	fmt.Println("BabelSub (巴别字幕) - Dedicated to Language Acquisition via Media")
 	fmt.Println("\nUsage:")
-	fmt.Println("  subsync                                   Start Web GUI and REST server")
-	fmt.Println("  subsync config --type emby --host <url> --token <token>")
-	fmt.Println("  subsync scan [--lang ja] [--missing-only]")
-	fmt.Println("  subsync fetch --query <MovieTitle>")
-	fmt.Println("  subsync merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
+	fmt.Println("  babelsub                                   Start Web GUI and REST server")
+	fmt.Println("  babelsub config --type emby --host <url> --token <token>")
+	fmt.Println("  babelsub scan [--lang ja] [--missing-only]")
+	fmt.Println("  babelsub fetch --query <MovieTitle>")
+	fmt.Println("  babelsub merge --ref <ref.srt> --in <target.srt> --out <output.ass>")
 }

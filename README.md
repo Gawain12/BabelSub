@@ -1,154 +1,135 @@
-# SubSync Studio (双语字幕自动对轴与管理套件)
+# 🌐 BabelSub (巴别字幕)
 
-> **面向 Emby / Jellyfin / Plex 与 Infuse 玩家的高性能中外双语字幕自动对轴制作系统**  
-> 采用 **Go + Python Sidecar (ffsubsync) + 零扫盘 REST 架构**，彻底杜绝网盘卡顿与 115 API 风控。
-
----
-
-## 🌟 核心特性与设计哲学
-
-1. **零文件扫盘（Zero Disk Scan）**：
-   - 不对云盘挂载点（CloudDrive2 / 115 / Alist）执行任何递归扫描，全部通过媒体库 REST API 毫秒级查询，保护网盘不被限流。
-2. **毫秒级自动对轴**：
-   - 基于 `ffsubsync` 算法，支持以原语种字幕或原片低码率音频流切片作为参考轴，自动对齐目标翻译字幕，彻底根治 Infuse 帧率漂移与字幕不同步。
-3. **符合人眼直觉的双语 ASS 排版**：
-   - 严格规范 1080p 画布分辨率（`PlayResX: 1920 / PlayResY: 1080`），字体大小自然微缩，杜绝大屏播放时字号占满半个屏幕的问题。
-4. **即时回写与 Infuse 秒感知**：
-   - 生成的标准 `.zh-ja.ass` / `.zh-en.ass` 写入同级电影目录后，自动触发媒体服务器单条目刷新，Apple TV / iOS 上的 Infuse 点开即有双语字幕。
-5. **多字幕源自动兜底**：
-   - 支持 SubtitleCat、射手网 (ASSRT)、SubHD 等公共源无 Key 免登录检索。
+> **打破巴别塔的语言隔阂 · 专为外语沉浸式学习打造的高性能媒体库双语字幕系统**  
+> 支持 **Emby / Jellyfin / Plex 与 Infuse**，采用 **Go + Python Sidecar (ffsubsync) + 零扫盘 REST 架构**，彻底杜绝网盘卡顿与 115 API 风控。
 
 ---
 
-## 🛠️ 系统与环境依赖
+> [!WARNING]
+> ### ⚠️ 学习者特别提示与免责声明 (Learner's Notice & Disclaimer)
+> 1. 本项目专为**外语影视沉浸式学习（Language Immersion & Acquisition）**打造，核心目标是提供优质的双语伴读对照。
+> 2. 部分双语字幕基于算法自动对齐、公开网络字幕源抓取或机器/大模型辅助生成，**可能存在局部生僻俚语误译、语境偏差或毫秒级时间戳细微差异**。
+> 3. 请将本字幕作为**听力跟读、语感积累与理解辅助**的工具，而非绝对权威词典。若在观影学习中发现翻译瑕疵，欢迎随手提 PR / Issue 贡献精校字幕！
+
+---
+
+## 🌟 核心特性
+
+- **为语言习得而生（Language Immersion First）**：
+  - 自动识别影视原生音轨语言（如日语、英语、法语、韩语），精准定位并制备双语字幕。
+  - 严格规范 1080p 标准蓝光画布（`PlayResX: 1920 / PlayResY: 1080`），原语种大字清晰突出、母语辅助字优雅微缩，彻底告别字幕爆框遮挡。
+- **零扫盘架构（Zero Disk Scan）**：
+  - 绝对不触碰 CloudDrive2 / 115 / Alist 挂载目录的文件树递归扫描，全部通过媒体库 REST API 毫秒级提取，完全免除网盘高频封控风险。
+- **毫秒级自适应对轴（Auto Alignment）**：
+  - 基于 `ffsubsync` 管道，以原声字幕或低码率音频切片作为基准对齐翻译字幕，彻底根治播放器时间轴漂移。
+- **即时回写，Infuse 秒播**：
+  - 生成标准 `.zh-ja.ass` / `.zh-en.ass` 并保存于影视同级目录后，自动触发单个条目刷新，Apple TV / iPhone 上的 Infuse 播放器点开即选即播。
+- **多公开字幕源无 Key 嗅探**：
+  - 自动聚合 SubtitleCat 等多语言字幕源，无需额外注册付费 API Key。
+
+---
+
+## 🛠️ 环境依赖
 
 | 组件 | 版本要求 | 用途说明 |
 | :--- | :--- | :--- |
 | **Go** | >= 1.21 | 主服务二进制编译、REST API、Web 控制台与 ASS 样式引擎 |
-| **ffmpeg** | >= 4.4 | 音视频流元数据嗅探、音频参考流抽取 |
+| **ffmpeg** | >= 4.4 | 音视频流元数据嗅探、音频参考切片抽取 |
 | **Python** | >= 3.8 | 运行 `ffsubsync` 独立对轴环境（推荐隔离 venv） |
 | **ffsubsync** | >= 0.5.1 | 核心语音/字幕对轴算法库 |
 
 ---
 
-## 🚀 极速安装与编译
+## 🚀 快速安装与使用
 
-### 1. 一键脚本安装（推荐）
-在项目根目录运行安装脚本，将自动检测安装 `ffmpeg`、创建隔离 Python 虚拟环境并编译 Go 单文件：
+### 1. 一键安装脚本
+在项目根目录下执行安装脚本，自动检测 `ffmpeg`、配置隔离 Python 虚拟环境并编译 Go 可执行程序：
 ```bash
 ./scripts/install.sh
 ```
 
-### 2. 手动编译（开发者）
+### 2. 手动构建
 ```bash
-# 1. 准备 Python 虚拟环境并安装 ffsubsync
-python3 -m venv ~/.config/subsync-studio/venv
-~/.config/subsync-studio/venv/bin/pip install ffsubsync
+# 配置独立 Python 虚拟环境
+python3 -m venv ~/.config/babelsub/venv
+~/.config/babelsub/venv/bin/pip install ffsubsync
 
-# 2. 编译 Go 核心
+# 编译 Go 核心
 go mod tidy
-go build -o bin/subsync ./cmd/subsync
+go build -o bin/babelsub ./cmd/babelsub
 ```
 
 ---
 
-## 📖 CLI 命令行使用指南
+## 📖 CLI 命令行操作
 
-### 1. 媒体服务器初始化（仅需一次）
+### 1. 媒体库连接配置（仅需一次）
 ```bash
 # 连接 Emby 服务
-./bin/subsync config --type emby --host http://192.168.1.100:8096 --token <YOUR_EMBY_API_KEY>
+./bin/babelsub config --type emby --host http://192.168.1.100:8096 --token <YOUR_EMBY_API_KEY>
 
 # 连接 Plex 服务
-./bin/subsync config --type plex --host http://192.168.1.81:32400 --token <X-Plex-Token>
+./bin/babelsub config --type plex --host http://192.168.1.81:32400 --token <X-Plex-Token>
 ```
-配置文件将持久化写入 `~/.config/subsync-studio/config.yaml`。
+配置文件将持久化写入 `~/.config/babelsub/config.yaml`。
 
 ### 2. 检索电影库条目（零扫盘）
 ```bash
-# 扫描库内所有原声为日语的电影条目
-./bin/subsync scan --lang ja
+# 检索库内所有原声为日语的电影条目
+./bin/babelsub scan --lang ja
 
-# 仅显示尚未制作双语字幕的电影
-./bin/subsync scan --lang ja --missing-only
+# 仅显示尚未就绪双语字幕的电影
+./bin/babelsub scan --lang ja --missing-only
 ```
 
 ### 3. 公开源搜索下载字幕
 ```bash
-# 检索指定电影的可用字幕轨
-./bin/subsync fetch --query "Swing Girls"
+# 检索指定电影的可用原声/多语言字幕
+./bin/babelsub fetch --query "Swing Girls"
 ```
 
 ### 4. 手动对轴并导出标准双语 ASS
 ```bash
-# 以日文字幕 ref.srt 为参考基准，对齐中文字幕 in.srt，输出为 movie.zh-ja.ass
-./bin/subsync merge --ref "path/to/ja.srt" --in "path/to/zh.srt" --out "path/to/output.zh-ja.ass"
+# 以日文字幕 ref.srt 为参考基准，对齐中文字幕 in.srt，输出为标准学习向双语 ASS
+./bin/babelsub merge --ref "path/to/ja.srt" --in "path/to/zh.srt" --out "path/to/output.zh-ja.ass"
 ```
 
 ---
 
 ## 🖥️ Web 管理界面
 
-SubSync Studio 内置了开箱即用的前端控制台：
+启动内置控制台：
 ```bash
-./bin/subsync --port 18980
+./bin/babelsub --port 18980
 ```
-在浏览器中打开：**http://localhost:18980**  
-- 可视化浏览库内影视列表；
-- 切换语言过滤、一键刷新条目外部字幕。
+在浏览器打开 **http://localhost:18980**，即可在可视化界面中浏览影视条目、过滤语种、查看双语就绪状态并触发媒体库挂载刷新。
 
 ---
 
-## ⚙️ 配置文件说明 (`config.yaml`)
-
-配置文件位于 `~/.config/subsync-studio/config.yaml`，结构如下：
-```yaml
-server:
-  type: emby                    # emby / jellyfin / plex
-  host: http://192.168.1.100:8096
-  token: your_emby_api_key_here
-
-styling:
-  play_res_x: 1920              # 1080p 画布宽度
-  play_res_y: 1080              # 1080p 画布高度
-  font_name: Arial              # 字体族
-  primary_font_size: 44         # 主语言正常字号（杜绝溢出）
-  secondary_font_size: 30       # 辅语言字号
-  primary_color: "&H00FFFFFF"   # 主语言文字纯白
-  secondary_color: "&H00D0FFFF" # 辅语言淡金/浅蓝
-  margin_v: 35                  # 底部安全边距
-
-providers:
-  enable_subtitlecat: true
-  enable_assrt: true
-  enable_subhd: true
-
-language:
-  target_audio: ja              # 默认原声音轨
-  native_sub: zh                # 默认母语字幕
-
-ffsubsync_bin: ffsubsync        # 可配置为自定义 Python 虚拟环境下的绝对路径
-```
-
----
-
-## 📂 项目工程结构
+## 📂 项目结构
 
 ```text
-subsync-studio/
-├── bin/                 # 编译产物目录 (subsync 单文件)
+BabelSub/
+├── bin/                 # 编译产物目录 (babelsub 单文件)
 ├── cmd/
-│   └── subsync/         # CLI 及 Web GUI 主入口 (main.go)
+│   └── babelsub/        # CLI 及 Web GUI 主入口 (main.go)
 ├── pkg/
-│   ├── adapter/         # Emby / Jellyfin / Plex 统一接口实现
-│   ├── ass/             # 纯 Go 高性能 ASS 样式生成引擎 (标准 1080p 画布)
+│   ├── adapter/         # Emby / Jellyfin / Plex 统一零扫盘适配层
+│   ├── ass/             # 纯 Go ASS 样式引擎（带 1080p 画布约束与学习排版）
 │   ├── config/          # YAML / JSON 双格式配置管理器
 │   ├── downloader/      # 多源公共字幕嗅探与下载器
 │   └── syncer/          # ffsubsync 流式进程管道封装
 ├── web/                 # Web 控制台内嵌 HTML/JS 前端资源
 ├── scripts/
 │   └── install.sh       # 一键依赖安装与构建脚本
-├── docs/                # 进阶架构与开发文档
+├── docs/
+│   └── ARCHITECTURE.md  # 架构设计约束与开发指南
 ├── go.mod
 └── README.md
 ```
+
+---
+
+## 📄 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源发布。
