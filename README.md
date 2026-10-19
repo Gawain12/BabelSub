@@ -1,135 +1,129 @@
-# 🌐 BabelSub (巴别字幕)
+# BabelSub
 
-> **打破巴别塔的语言隔阂 · 专为外语沉浸式学习打造的高性能媒体库双语字幕系统**  
-> 支持 **Emby / Jellyfin / Plex 与 Infuse**，采用 **Go + Python Sidecar (ffsubsync) + 零扫盘 REST 架构**，彻底杜绝网盘卡顿与 115 API 风控。
+BabelSub 是一个专为语言学习（如看原声日影、美剧学外语）设计的双语字幕处理工具。
 
----
+写这个工具的初衷是因为自己在 Infuse / Emby 看外语片时，经常找不到舒服的双语字幕：
+- 播放器内置刮削下的外挂字幕经常和原盘帧率对不上，时间轴越播越偏；
+- 网盘（如 115 / CloudDrive2）直接全盘扫描极易触发限流风控；
+- 学习外语时需要原声语言在上、中文在下，但很多现成双语字幕排版字体要么巨大遮挡屏幕，要么比例不合适。
 
-> [!WARNING]
-> ### ⚠️ 学习者特别提示与免责声明 (Learner's Notice & Disclaimer)
-> 1. 本项目专为**外语影视沉浸式学习（Language Immersion & Acquisition）**打造，核心目标是提供优质的双语伴读对照。
-> 2. 部分双语字幕基于算法自动对齐、公开网络字幕源抓取或机器/大模型辅助生成，**可能存在局部生僻俚语误译、语境偏差或毫秒级时间戳细微差异**。
-> 3. 请将本字幕作为**听力跟读、语感积累与理解辅助**的工具，而非绝对权威词典。若在观影学习中发现翻译瑕疵，欢迎随手提 PR / Issue 贡献精校字幕！
+BabelSub 通过对接 Emby / Jellyfin / Plex 的 API 快速读取库内影片信息（无需扫盘），自动获取或导入现有单语字幕，利用 `ffsubsync` 以前期原声字幕（或音频）为基准将中文字幕对齐，最后拼合成标准排版的双语 ASS 字幕写回目录。
 
----
-
-## 🌟 核心特性
-
-- **为语言习得而生（Language Immersion First）**：
-  - 自动识别影视原生音轨语言（如日语、英语、法语、韩语），精准定位并制备双语字幕。
-  - 严格规范 1080p 标准蓝光画布（`PlayResX: 1920 / PlayResY: 1080`），原语种大字清晰突出、母语辅助字优雅微缩，彻底告别字幕爆框遮挡。
-- **零扫盘架构（Zero Disk Scan）**：
-  - 绝对不触碰 CloudDrive2 / 115 / Alist 挂载目录的文件树递归扫描，全部通过媒体库 REST API 毫秒级提取，完全免除网盘高频封控风险。
-- **毫秒级自适应对轴（Auto Alignment）**：
-  - 基于 `ffsubsync` 管道，以原声字幕或低码率音频切片作为基准对齐翻译字幕，彻底根治播放器时间轴漂移。
-- **即时回写，Infuse 秒播**：
-  - 生成标准 `.zh-ja.ass` / `.zh-en.ass` 并保存于影视同级目录后，自动触发单个条目刷新，Apple TV / iPhone 上的 Infuse 播放器点开即选即播。
-- **多公开字幕源无 Key 嗅探**：
-  - 自动聚合 SubtitleCat 等多语言字幕源，无需额外注册付费 API Key。
+> **关于字幕内容的说明**：  
+> 本工具仅负责字幕时间轴的对齐、缝合与排版输出，字幕文本内容均来自公开网络源或原盘自带轨。字幕本身的翻译质量取决于原作者或抓取源，工具本身不做翻译背书，仅供语言学习参考。
 
 ---
 
-## 🛠️ 环境依赖
+## 功能特性
 
-| 组件 | 版本要求 | 用途说明 |
-| :--- | :--- | :--- |
-| **Go** | >= 1.21 | 主服务二进制编译、REST API、Web 控制台与 ASS 样式引擎 |
-| **ffmpeg** | >= 4.4 | 音视频流元数据嗅探、音频参考切片抽取 |
-| **Python** | >= 3.8 | 运行 `ffsubsync` 独立对轴环境（推荐隔离 venv） |
-| **ffsubsync** | >= 0.5.1 | 核心语音/字幕对轴算法库 |
+- **零扫盘**：仅通过 Emby/Jellyfin/Plex API 读取电影信息，不遍历挂载盘文件树，避免 115 / 网盘限流。
+- **自动对轴**：基于 `ffsubsync`，用原语言字幕作为黄金参考基准，自动修正中文字幕的偏移和帧率拉伸。
+- **正常排版**：固定 1080p 画布基准（`PlayResX: 1920` / `PlayResY: 1080`），原语言大字、中文微缩居下，适配 Infuse 等播放器。
+- **即时刷新**：生成 `.zh-ja.ass` / `.zh-en.ass` 写回电影目录后，调用 API 通知媒体库局部刷新，Infuse 打开即可选择。
+- **自带 Web 界面**：除了命令行，也支持在浏览器里直接点选处理。
 
 ---
 
-## 🚀 快速安装与使用
+## 依赖要求
 
-### 1. 一键安装脚本
-在项目根目录下执行安装脚本，自动检测 `ffmpeg`、配置隔离 Python 虚拟环境并编译 Go 可执行程序：
+- **Go** (>= 1.21)
+- **ffmpeg** (用于音频流或媒体信息探测)
+- **Python 3** + **ffsubsync** (对轴核心)
+
+---
+
+## 安装
+
+### 方式一：一键脚本
 ```bash
 ./scripts/install.sh
 ```
 
-### 2. 手动构建
+### 方式二：手动构建
 ```bash
-# 配置独立 Python 虚拟环境
+# 1. 准备 Python 虚拟环境并安装 ffsubsync
 python3 -m venv ~/.config/babelsub/venv
 ~/.config/babelsub/venv/bin/pip install ffsubsync
 
-# 编译 Go 核心
+# 2. 编译二进制
 go mod tidy
 go build -o bin/babelsub ./cmd/babelsub
 ```
 
 ---
 
-## 📖 CLI 命令行操作
+## 使用指南
 
-### 1. 媒体库连接配置（仅需一次）
+### 1. 配置服务器（初次使用）
+配置你的媒体服务器连接，信息会保存在 `~/.config/babelsub/config.yaml`：
 ```bash
-# 连接 Emby 服务
-./bin/babelsub config --type emby --host http://192.168.1.100:8096 --token <YOUR_EMBY_API_KEY>
+# Emby 示例
+./bin/babelsub config --type emby --host http://192.168.1.100:8096 --token YOUR_API_KEY
 
-# 连接 Plex 服务
-./bin/babelsub config --type plex --host http://192.168.1.81:32400 --token <X-Plex-Token>
+# Plex 示例
+./bin/babelsub config --type plex --host http://192.168.1.81:32400 --token YOUR_PLEX_TOKEN
 ```
-配置文件将持久化写入 `~/.config/babelsub/config.yaml`。
 
-### 2. 检索电影库条目（零扫盘）
+### 2. 扫描库内电影
 ```bash
-# 检索库内所有原声为日语的电影条目
+# 查看所有日语原声电影
 ./bin/babelsub scan --lang ja
 
-# 仅显示尚未就绪双语字幕的电影
+# 仅列出尚未制作双语字幕的电影
 ./bin/babelsub scan --lang ja --missing-only
 ```
 
-### 3. 公开源搜索下载字幕
+### 3. 检索公开字幕
 ```bash
-# 检索指定电影的可用原声/多语言字幕
 ./bin/babelsub fetch --query "Swing Girls"
 ```
 
-### 4. 手动对轴并导出标准双语 ASS
+### 4. 对轴并合并双语字幕
+拿一份参考字幕（通常是原语言字幕）和一份待对轴字幕（如中文），自动校准并导出 ASS：
 ```bash
-# 以日文字幕 ref.srt 为参考基准，对齐中文字幕 in.srt，输出为标准学习向双语 ASS
-./bin/babelsub merge --ref "path/to/ja.srt" --in "path/to/zh.srt" --out "path/to/output.zh-ja.ass"
+./bin/babelsub merge \
+  --ref "/path/to/japanese_ref.srt" \
+  --in "/path/to/chinese_raw.srt" \
+  --out "/path/to/output.zh-ja.ass"
 ```
 
----
-
-## 🖥️ Web 管理界面
-
-启动内置控制台：
+### 5. Web 控制台
 ```bash
 ./bin/babelsub --port 18980
 ```
-在浏览器打开 **http://localhost:18980**，即可在可视化界面中浏览影视条目、过滤语种、查看双语就绪状态并触发媒体库挂载刷新。
+启动后在浏览器打开 `http://localhost:18980`，可查看电影列表及双语状态。
 
 ---
 
-## 📂 项目结构
+## 配置文件示例
 
-```text
-BabelSub/
-├── bin/                 # 编译产物目录 (babelsub 单文件)
-├── cmd/
-│   └── babelsub/        # CLI 及 Web GUI 主入口 (main.go)
-├── pkg/
-│   ├── adapter/         # Emby / Jellyfin / Plex 统一零扫盘适配层
-│   ├── ass/             # 纯 Go ASS 样式引擎（带 1080p 画布约束与学习排版）
-│   ├── config/          # YAML / JSON 双格式配置管理器
-│   ├── downloader/      # 多源公共字幕嗅探与下载器
-│   └── syncer/          # ffsubsync 流式进程管道封装
-├── web/                 # Web 控制台内嵌 HTML/JS 前端资源
-├── scripts/
-│   └── install.sh       # 一键依赖安装与构建脚本
-├── docs/
-│   └── ARCHITECTURE.md  # 架构设计约束与开发指南
-├── go.mod
-└── README.md
+文件路径：`~/.config/babelsub/config.yaml`
+
+```yaml
+server:
+  type: emby                    # emby / jellyfin / plex
+  host: http://192.168.1.100:8096
+  token: your_api_key_here
+
+styling:
+  play_res_x: 1920              # 1080p 画布宽度
+  play_res_y: 1080              # 1080p 画布高度
+  font_name: Arial
+  primary_font_size: 44         # 上层主语言字号
+  secondary_font_size: 30       # 下层中文辅助字号
+  primary_color: "&H00FFFFFF"   # 白色
+  secondary_color: "&H00D0FFFF" # 淡金/淡黄
+  margin_v: 35                  # 底部边距
+
+language:
+  target_audio: ja              # 默认筛选的原声音轨
+  native_sub: zh                # 默认母语字幕语言
+
+ffsubsync_bin: ffsubsync        # 可指定绝对路径，如 ~/.config/babelsub/venv/bin/ffsubsync
 ```
 
 ---
 
-## 📄 开源协议
+## License
 
-本项目基于 [MIT License](LICENSE) 开源发布。
+[MIT](LICENSE)
