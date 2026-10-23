@@ -45,10 +45,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Release with the current toolchain, not go.mod's minimum: Go < 1.24 does
+      # not emit LC_UUID, and recent macOS refuses to launch such binaries
+      # ("dyld: missing LC_UUID load command").
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: stable
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -78,6 +81,12 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then VERSION="dev-${GITHUB_SHA::7}"; fi
           go build -ldflags="-s -w -X main.version=${VERSION}" -o "bundle/babelsub${{ matrix.ext }}" ./cmd/babelsub
+
+      - name: Smoke Test Binaries
+        shell: bash
+        run: |
+          ./bundle/babelsub${{ matrix.ext }} version
+          ./bundle/ffsubsync${{ matrix.ext }} --version
 
       - name: Create Distribution Archive
         shell: bash

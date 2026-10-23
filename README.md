@@ -45,6 +45,12 @@ BabelSub 通过对接 Emby / Jellyfin / Plex 的 API 快速读取库内影片信
 
 压缩包内已打包好 `babelsub` 与独立的 `ffsubsync` 可执行程序，解压后即可直接使用，免除任何 Python 环境配置。
 
+- **仍需自行安装 ffmpeg**（读取 MKV 轨道、转换 ASS/VTT 字幕时使用）：macOS `brew install ffmpeg`，Debian/Ubuntu `apt install ffmpeg`，Windows 可用 `winget install ffmpeg`。
+- **macOS 首次运行**：程序未经 Apple 公证，浏览器下载后会被系统拦截，解压后在该目录执行一次：
+  ```bash
+  xattr -dr com.apple.quarantine babelsub ffsubsync
+  ```
+
 ### 方式二：一键脚本（macOS / Linux）
 ```bash
 ./scripts/install.sh

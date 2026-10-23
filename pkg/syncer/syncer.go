@@ -69,6 +69,9 @@ func (s *Syncer) SyncWithContext(
 	progressCallback func(string),
 ) error {
 	cmd := exec.CommandContext(ctx, s.FFsubsyncPath, referencePath, "-i", targetSubPath, "-o", outputPath, "--encoding", "utf-8")
+	// ffsubsync logs through rich, which wraps at the terminal width; give it a
+	// wide virtual terminal so paths are not split across log lines.
+	cmd.Env = append(os.Environ(), "COLUMNS=400", "NO_COLOR=1")
 
 	// ffsubsync writes progress to stderr and some errors to stdout; read both.
 	pr, pw, err := os.Pipe()
